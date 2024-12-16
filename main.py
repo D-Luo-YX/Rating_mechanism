@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 
 from Go_rating import go_rating
 from Tennis_rating import tennis_rating
+from Badminton_rating import badminton_rating
 from validation import simulation
 
 def save_result_to_txt(data_list,save_path):
@@ -55,13 +56,15 @@ if __name__ == "__main__":
         winning_matrix = go_rating()
     if match_name == 'Tennis':
         winning_matrix = tennis_rating()
+    if match_name == 'Badminton':
+        winning_matrix = badminton_rating()
     # strength_type = 'Uniform'
     # strength_type = 'PL'
     # strength_type = 'Normal'
     strength = ['Normal','Uniform','PL']
     all_D = []
     for strength_type in strength:
-        for iteration in range(2):
+        for iteration in range(100):
             # D, min_theta , D_min = simulation(winning_matrix,distribution_type=strength_type)#三种分布方式 'Uniform','PL','Normal' 分别代表均匀分布，幂律分布，正态分布。
             D, _, _ = simulation(winning_matrix,distribution_type=strength_type)  # 三种分布方式 'Uniform','PL','Normal' 分别代表均匀分布，幂律分布，正态分布。
             all_D.append(D)
