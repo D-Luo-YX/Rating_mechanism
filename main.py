@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from Go_rating import go_rating
 from Tennis_rating import tennis_rating
 from Badminton_rating import badminton_rating
+from Scraft_rating import  scraft_rating
 from validation import simulation
 
 def save_result_to_txt(data_list,save_path):
@@ -23,41 +24,58 @@ def read_file(filename):
         # Read each line, strip newline characters, and convert to the appropriate type
         number_list = [float(line.strip()) for line in file]
     return number_list
-
 def plot_function(filename):
     theta_values = np.linspace(0, 2, 200)
 
+    # Read data
     Uniform = read_file(f'Result/{filename}/Uniform.txt')
     PL = read_file(f'Result/{filename}/PL.txt')
     Normal = read_file(f'Result/{filename}/Normal.txt')
 
     plt.figure(figsize=(10, 6))
 
+    # Plot distributions
     plt.plot(theta_values, Uniform, linestyle='--', color='r', label='Uniform')
     plt.plot(theta_values, PL, linestyle='--', color='blue', label='PowerLaw')
     plt.plot(theta_values, Normal, linestyle='--', color='gray', label='Normal')
 
+    # Find and mark minimum values
+    def mark_minima(data, color, label):
+        min_value = np.min(data)
+        min_indices = np.where(data == min_value)[0]
+        theta_min = theta_values[min_indices[0]]
+        for idx in min_indices:
+            plt.axvline(x=theta_values[idx], color=color, linestyle=':', alpha=0.7)
+            plt.scatter(theta_values[idx], min_value, color=color, label=f'theta={theta_min:.2f}' if idx == min_indices[0] else "")
+
+    mark_minima(Uniform, 'r', 'Uniform')
+    mark_minima(PL, 'blue', 'PowerLaw')
+    mark_minima(Normal, 'gray', 'Normal')
+
+    # Add labels and legend
     plt.xlabel('theta')
     plt.ylabel('Difference(D)')
     plt.title(f'Comparison of Different Distributions in {filename} match')
-
     plt.legend()
 
     plt.grid(True)
     plt.show()
     return 0
 
+
 if __name__ == "__main__":
 
     winning_matrix = []
 
-    match_name = 'Tennis'
+    match_name = 'Star'
     if match_name == 'Go':
         winning_matrix = go_rating()
     if match_name == 'Tennis':
         winning_matrix = tennis_rating()
     if match_name == 'Badminton':
         winning_matrix = badminton_rating()
+    if match_name == 'Star':
+        winning_matrix = scraft_rating()
     # strength_type = 'Uniform'
     # strength_type = 'PL'
     # strength_type = 'Normal'
