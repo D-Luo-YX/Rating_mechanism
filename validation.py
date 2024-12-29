@@ -1,6 +1,9 @@
 import numpy as np
 import pandas as pd
 from Go_rating import go_rating
+from Scraft_rating import scraft_rating
+from Tennis_rating import tennis_rating
+from Badminton_rating import badminton_rating
 def E_vector_calculate(Winning_Matrix):
     """ 这个函数 用来得出每位选手战胜不如他的对手的概率
     参数：
@@ -86,12 +89,15 @@ def calculate_simulation_matrix(simulated_strength,theta,num_players=48):
 def simulation(matrix,distribution_type = 'Uniform'):
     D = []
     E = E_vector_calculate(matrix)
+
     D_min = 10000
     min_theta = 0
     simulated_strength = strength_list(num_players=48, strengths_type= distribution_type)
+
     for theta in np.arange(0, 2, 0.01):
         D_v = 0
         simulated_winning_matrix = calculate_simulation_matrix(simulated_strength,theta)
+        # simulated_winning_matrix = standard_matrix(rows=33, cols=33)
         E_simulated = E_vector_calculate(simulated_winning_matrix)
 
         for i in range(32):
@@ -103,6 +109,38 @@ def simulation(matrix,distribution_type = 'Uniform'):
             min_theta = theta
     return D, min_theta , D_min
 
+
+def best_theta_simulation(distribution_type='Uniform', theta=1.0):
+    D = []
+    simulated_strength = strength_list(num_players=48, strengths_type=distribution_type)
+
+    E_simulated_list = []  # 用于存储每次模拟的 E_simulated
+
+    for i in range(100):
+        simulated_winning_matrix = calculate_simulation_matrix(simulated_strength, theta)
+        # simulated_winning_matrix = standard_matrix(rows=33, cols=33)
+        E_simulated = E_vector_calculate(simulated_winning_matrix)
+        E_simulated_list.append(E_simulated)  # 添加到列表中
+
+    # 计算 E_simulated 的平均值
+    num_simulations = len(E_simulated_list)
+    num_elements = len(E_simulated_list[0])
+
+    E_simulated_avg = [sum(E_simulated_list[j][i] for j in range(num_simulations)) / num_simulations
+                       for i in range(num_elements)]
+
+    return E_simulated_avg
+
 if __name__ == "__main__":
     winning_matrix = go_rating()
-    simulation(winning_matrix)
+    D,_,_ = simulation(winning_matrix)
+    print(D)
+    winning_matrix = tennis_rating()
+    D, _, _ = simulation(winning_matrix)
+    print(D)
+    winning_matrix = badminton_rating()
+    D, _, _ = simulation(winning_matrix)
+    print(D)
+    winning_matrix = scraft_rating()
+    D, _, _ = simulation(winning_matrix)
+    print(D)

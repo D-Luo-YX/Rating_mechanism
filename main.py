@@ -1,12 +1,14 @@
 import numpy as np
 import os
 import matplotlib.pyplot as plt
+import random
 
 from Go_rating import go_rating
 from Tennis_rating import tennis_rating
 from Badminton_rating import badminton_rating
 from Scraft_rating import  scraft_rating
 from validation import simulation
+from plot_E import plot_single_match
 
 def save_result_to_txt(data_list,save_path):
     directory = os.path.dirname(save_path)
@@ -24,6 +26,7 @@ def read_file(filename):
         # Read each line, strip newline characters, and convert to the appropriate type
         number_list = [float(line.strip()) for line in file]
     return number_list
+
 def plot_function(filename):
     theta_values = np.linspace(0, 2, 200)
 
@@ -47,10 +50,10 @@ def plot_function(filename):
         for idx in min_indices:
             plt.axvline(x=theta_values[idx], color=color, linestyle=':', alpha=0.7)
             plt.scatter(theta_values[idx], min_value, color=color, label=f'theta={theta_min:.2f}' if idx == min_indices[0] else "")
-
-    mark_minima(Uniform, 'r', 'Uniform')
-    mark_minima(PL, 'blue', 'PowerLaw')
-    mark_minima(Normal, 'gray', 'Normal')
+        return theta_min
+    Uniform_min = mark_minima(Uniform, 'r', 'Uniform')
+    PL_min = mark_minima(PL, 'blue', 'PowerLaw')
+    Normal_min = mark_minima(Normal, 'gray', 'Normal')
 
     # Add labels and legend
     plt.xlabel('theta')
@@ -60,14 +63,29 @@ def plot_function(filename):
 
     plt.grid(True)
     plt.show()
-    return 0
+    return round(Uniform_min, 2), round(PL_min, 2), round(Normal_min, 2)
 
+def standard_matrix(rows=3, cols=3):
+    """
+    Generates a matrix with the given dimensions, filled with the value 0.5.
+
+    Parameters:
+        rows (int): Number of rows in the matrix (default is 3).
+        cols (int): Number of columns in the matrix (default is 3).
+
+    Returns:
+        numpy.ndarray: A matrix filled with 0.5.
+    """
+    return np.full((rows, cols), 0.5)
 
 if __name__ == "__main__":
+    seed = 42
+    np.random.seed(seed)
+    random.seed(seed)
 
     winning_matrix = []
 
-    match_name = 'Star'
+    match_name = 'Go'
     if match_name == 'Go':
         winning_matrix = go_rating()
     if match_name == 'Tennis':
@@ -76,10 +94,13 @@ if __name__ == "__main__":
         winning_matrix = badminton_rating()
     if match_name == 'Star':
         winning_matrix = scraft_rating()
+    if match_name == 'Random':
+        winning_matrix = standard_matrix(rows=33, cols=33)
     # strength_type = 'Uniform'
     # strength_type = 'PL'
     # strength_type = 'Normal'
     strength = ['Normal','Uniform','PL']
+    # strength = ['Standard']
     all_D = []
     for strength_type in strength:
         for iteration in range(100):
@@ -89,4 +110,7 @@ if __name__ == "__main__":
         all_D_array = np.array(all_D)
         D_mean = np.mean(all_D_array, axis=0)
         save_result_to_txt(D_mean,f'Result/{match_name}/{strength_type}.txt')
-    plot_function(match_name)
+        # save_result_to_txt(D_mean, f'Result/{match_name}/{strength_type}.txt')
+    uniform_min, PL_min, Normal_min = plot_function(match_name)
+    print(uniform_min, PL_min, Normal_min)
+    plot_single_match(match_name, uniform_min, PL_min, Normal_min)
