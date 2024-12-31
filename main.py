@@ -85,7 +85,7 @@ if __name__ == "__main__":
 
     winning_matrix = []
 
-    match_name = 'Go'
+    match_name = 'Tennis'
     if match_name == 'Go':
         winning_matrix = go_rating()
     if match_name == 'Tennis':
