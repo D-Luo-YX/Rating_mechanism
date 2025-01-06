@@ -85,7 +85,7 @@ if __name__ == "__main__":
 
     winning_matrix = []
 
-    match_name = 'Tennis'
+    match_name = 'Star'
     if match_name == 'Go':
         winning_matrix = go_rating()
     if match_name == 'Tennis':
@@ -109,7 +109,7 @@ if __name__ == "__main__":
             all_D.append(D)
         all_D_array = np.array(all_D)
         D_mean = np.mean(all_D_array, axis=0)
-        save_result_to_txt(D_mean,f'Result/{match_name}/{strength_type}.txt')
+        save_result_to_txt(D_mean,f'Result_32/{match_name}/{strength_type}.txt')
         # save_result_to_txt(D_mean, f'Result/{match_name}/{strength_type}.txt')
     uniform_min, PL_min, Normal_min = plot_function(match_name)
     print(uniform_min, PL_min, Normal_min)

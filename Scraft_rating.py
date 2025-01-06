@@ -14,18 +14,18 @@ def normalize(M):
     return normalized_M
 
 
-def scraft_rating():
+def scraft_rating(player_num = 64):
     files = os.listdir('Data/Scraft_data/data/')
     M = np.zeros((101, 101))
     for item in files:
         M += np.load(f'Data/Scraft_data/data/{item}')
-    result_matrix = np.zeros((33, 33))
-    result_matrix[:32, :32] = M[:32, :32]
-    row_sums = M[:32, 32:].sum(axis=1)
-    result_matrix[:32, 32] = row_sums
+    result_matrix = np.zeros((player_num+1, player_num+1))
+    result_matrix[:player_num, :player_num] = M[:player_num, :player_num]
+    row_sums = M[:player_num, player_num:].sum(axis=1)
+    result_matrix[:player_num, player_num] = row_sums
 
-    col_sums = M[32:, :32].sum(axis=0)
-    result_matrix[32, :32] = col_sums
+    col_sums = M[player_num:, :player_num].sum(axis=0)
+    result_matrix[player_num, :player_num] = col_sums
     result_matrix = normalize(result_matrix)
     return  result_matrix
 

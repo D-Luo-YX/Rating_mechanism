@@ -5,8 +5,8 @@ import os
 import pandas as pd
 
 ### Converting the .txt to the Matrix
-def process_match_file(input_file, output_file):
-    matrix = np.zeros((33, 33), dtype=int)
+def process_match_file(input_file, output_file, player_num=64):
+    matrix = np.zeros((player_num+1, player_num+1), dtype=int)
 
     with open(input_file, 'r', encoding='utf-8') as file:
         for line in file:
@@ -24,10 +24,10 @@ def process_match_file(input_file, output_file):
                 # print(f"跳过排名相同的比赛记录: A_rank={player_a_rank}, B_rank={player_b_rank}")
                 continue
 
-            rank_a = min(player_a_rank, 33)
-            rank_b = min(player_b_rank, 33)
+            rank_a = min(player_a_rank, player_num+1)
+            rank_b = min(player_b_rank, player_num+1)
 
-            if player_a_rank > 32 and player_b_rank > 32:
+            if player_a_rank > player_num and player_b_rank > player_num:
                 continue
 
             if player_a_score > player_b_score:
@@ -37,7 +37,7 @@ def process_match_file(input_file, output_file):
 
     return  matrix
 
-def process_match_file_2(input_file, output_file):
+def process_match_file_2(input_file, output_file, player_num=64):
     matrix = np.zeros((10000, 10000), dtype=int)
 
     with open(input_file, 'r', encoding='utf-8') as file:
@@ -57,7 +57,7 @@ def process_match_file_2(input_file, output_file):
                 continue
 
 
-            if player_a_rank > 32 and player_b_rank > 32:
+            if player_a_rank > player_num and player_b_rank > player_num:
                 continue
 
             if player_a_score > player_b_score:
@@ -80,40 +80,40 @@ def normalize(M):
     return normalized_M
 
 
-def convert_matrix233(matrix):
+def convert_matrix233(matrix, player_num=64):
     """Convert a larger matrix to a 33x33 matrix, skipping empty elements in calculations."""
 
     # 原始 32x32 部分保留
-    top_32 = matrix[:32, :32]
+    top_32 = matrix[:player_num, :player_num]
 
-    # 计算第 i 行在第 32 列之后的非零元素统计
-    avg_col_33_modified = np.array([
+    # 计算第 i 行在第 归并 列之后的非零元素统计
+    avg_col_last_modified = np.array([
         np.mean([
             matrix[i, j]
-            for j in range(32, matrix.shape[1])
+            for j in range(player_num, matrix.shape[1])
             if matrix[i, j] > 0 or matrix[j, i] > 0
-        ]) if np.any([matrix[i, j] > 0 or matrix[j, i] > 0 for j in range(32, matrix.shape[1])]) else 0
-        for i in range(32)
+        ]) if np.any([matrix[i, j] > 0 or matrix[j, i] > 0 for j in range(player_num, matrix.shape[1])]) else 0
+        for i in range(player_num)
     ])
-    # 计算第 j 列在第 32 行之后的非零元素统计
-    avg_row_33_modified = np.array([
+    # 计算第 j 列在第 归并 行之后的非零元素统计
+    avg_row_last_modified = np.array([
         np.mean([
             matrix[i, j]
-            for i in range(32, matrix.shape[0])
+            for i in range(player_num, matrix.shape[0])
             if matrix[i, j] > 0 or matrix[j, i] > 0  # 检查非零元素
         ]) if np.any([
             matrix[i, j] > 0 or matrix[j, i] > 0
-            for i in range(32, matrix.shape[0])
+            for i in range(player_num, matrix.shape[0])
         ]) else 0
-        for j in range(32)
+        for j in range(player_num)
     ])
 
-    # 创建新的 33x33 矩阵
-    new_matrix = np.zeros((33, 33))
-    new_matrix[:32, :32] = top_32
-    new_matrix[:32, 32] = avg_col_33_modified[:32]  # 修正为只取前 32 列的结果
-    new_matrix[32, :32] = avg_row_33_modified[:32]  # 修正为只取前 32 hang# 的结果
-    new_matrix[32, 32] = 0
+    # 创建新的 player_num + 1 矩阵
+    new_matrix = np.zeros((player_num+1, player_num+1))
+    new_matrix[:player_num, :player_num] = top_32
+    new_matrix[:player_num, player_num] = avg_col_last_modified[:player_num]  # 修正为只取前 player_num 列 的结果
+    new_matrix[player_num, :player_num] = avg_row_last_modified[:player_num]  # 修正为只取前 player_num 行 的结果
+    new_matrix[player_num, player_num] = 0
 
     return new_matrix
 

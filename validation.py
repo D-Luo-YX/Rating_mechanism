@@ -12,10 +12,10 @@ def E_vector_calculate(Winning_Matrix):
 
     E = []
     N = [] #统计多少人交过手
-    for i in range(33):
+    for i in range(32):
         n=0
         E_i = 0
-        for j in range(i+1,33):
+        for j in range(i+1,32):
             Pij = Winning_Matrix[i, j]
             Pji = Winning_Matrix[j, i]
             if (Pij + Pji)>0.1:
@@ -67,6 +67,30 @@ def convert_to_33x33(prob_matrix):
 
     return new_matrix
 
+def strength_list_32(num_players=32, strengths_type='Uniform'):
+    if strengths_type == 'Uniform':
+        # 均匀分布
+        strengths = np.random.uniform(0, 1, num_players)
+
+    #幂律分布
+    elif strengths_type == 'PL':
+        a = 0.5
+        strengths = np.random.power(a, num_players)
+
+    # 正态分布 重映射正态分布
+    elif strengths_type == 'Normal':
+        normal_data = np.random.randn(num_players)
+        strengths = 1 / (1 + np.exp(-normal_data))
+
+    strengths_df = pd.DataFrame(strengths, columns=["Strength"])
+    strengths_df['Player'] = strengths_df.index
+
+    sorted_strengths_df = strengths_df.sort_values(by="Strength", ascending=False).reset_index(drop=True)
+
+    sorted_strengths = sorted_strengths_df['Strength'].values
+
+    return sorted_strengths
+
 def ndcg_weights(rankings):
     """计算 NDCG 权重"""
     return 1 / np.log2(rankings + 2)  # +2 是因为 log2(1) 应该对应排名1
@@ -97,12 +121,12 @@ def convert_to_33x33_ndcg(prob_matrix):
 
     return new_matrix
 
-def calculate_simulation_matrix(simulated_strength,theta,num_players=48):
+def calculate_simulation_matrix(simulated_strength,theta,num_players=32):
 
     temp_M = np.zeros((num_players, num_players), dtype=float)
 
     for i in range(num_players):
-        for j in range(num_players):
+        for j in range(i, num_players):
             if i == j:
                 P_i = 0
             else:
@@ -113,25 +137,28 @@ def calculate_simulation_matrix(simulated_strength,theta,num_players=48):
                 #     random_rate = 0.5
                 #     P_i = theta * strength_based_rate + (1 - theta) * random_rate
             temp_M[i, j] = P_i
+            temp_M[j, i] = 1 - P_i
     # simulated_winning_matrix = convert_to_33x33(temp_M)
-    simulated_winning_matrix = convert_to_33x33_ndcg(temp_M)
+    # simulated_winning_matrix = convert_to_33x33_ndcg(temp_M)
+    simulated_winning_matrix = temp_M
     return simulated_winning_matrix
 
 
 def simulation(matrix,distribution_type = 'Uniform'):
     D = []
-    E = E_vector_calculate(matrix)
+    matrix_32x32 = matrix[:32, :32]
+    E = E_vector_calculate(matrix_32x32)
 
     D_min = 10000
     min_theta = 0
     simulated_strength = strength_list(num_players=48, strengths_type= distribution_type)
-    simulated_strength = np.full(48, 0.5).tolist()
+    simulated_strength = simulated_strength[:32]
+    # simulated_strength = np.full(48, 0.5).tolist()
     for theta in np.arange(0, 2, 0.01):
         D_v = 0
         simulated_winning_matrix = calculate_simulation_matrix(simulated_strength,theta)
         # simulated_winning_matrix = standard_matrix(rows=33, cols=33)
         E_simulated = E_vector_calculate(simulated_winning_matrix)
-
         for i in range(32):
             D_v += abs(E_simulated[i] - E[i])
 
@@ -164,15 +191,15 @@ def best_theta_simulation(distribution_type='Uniform', theta=1.0):
     return E_simulated_avg
 
 if __name__ == "__main__":
-    winning_matrix = go_rating()
-    D,_,_ = simulation(winning_matrix)
-    print(D)
+    # winning_matrix = go_rating()
+    # D,_,_ = simulation(winning_matrix)
+    # print(D)
     winning_matrix = tennis_rating()
     D, _, _ = simulation(winning_matrix)
     print(D)
-    winning_matrix = badminton_rating()
-    D, _, _ = simulation(winning_matrix)
-    print(D)
-    winning_matrix = scraft_rating()
-    D, _, _ = simulation(winning_matrix)
-    print(D)
+    # winning_matrix = badminton_rating()
+    # D, _, _ = simulation(winning_matrix)
+    # print(D)
+    # winning_matrix = scraft_rating()
+    # D, _, _ = simulation(winning_matrix)
+    # print(D)
