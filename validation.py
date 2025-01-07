@@ -4,7 +4,7 @@ from Go_rating import go_rating
 from Scraft_rating import scraft_rating
 from Tennis_rating import tennis_rating
 from Badminton_rating import badminton_rating
-def E_vector_calculate(Winning_Matrix):
+def E_vector_calculate(Winning_Matrix, player_num = 32):
     """ 这个函数 用来得出每位选手战胜不如他的对手的概率
     参数：
     - Winning_Matrix: 当前需要处理的胜场矩阵
@@ -12,10 +12,10 @@ def E_vector_calculate(Winning_Matrix):
 
     E = []
     N = [] #统计多少人交过手
-    for i in range(32):
+    for i in range(player_num):
         n=0
         E_i = 0
-        for j in range(i+1,32):
+        for j in range(i+1,player_num):
             Pij = Winning_Matrix[i, j]
             Pji = Winning_Matrix[j, i]
             if (Pij + Pji)>0.1:
@@ -28,19 +28,21 @@ def E_vector_calculate(Winning_Matrix):
     return E
 
 # Get Simulation Matrix M'
-def strength_list(num_players=48, strengths_type='Uniform'):
+def strength_list(num_players=32, strengths_type='Uniform', simulate_and_1_flag = True):
+    if simulate_and_1_flag: simulate_num = int(num_players*2)
+    else: simulate_num = int(num_players)
     if strengths_type == 'Uniform':
         # 均匀分布
-        strengths = np.random.uniform(0, 1, num_players)
+        strengths = np.random.uniform(0, 1, simulate_num)
 
     #幂律分布
     elif strengths_type == 'PL':
         a = 0.5
-        strengths = np.random.power(a, num_players)
+        strengths = np.random.power(a, simulate_num)
 
     # 正态分布 重映射正态分布
     elif strengths_type == 'Normal':
-        normal_data = np.random.randn(num_players)
+        normal_data = np.random.randn(simulate_num)
         strengths = 1 / (1 + np.exp(-normal_data))
 
     strengths_df = pd.DataFrame(strengths, columns=["Strength"])
@@ -52,44 +54,20 @@ def strength_list(num_players=48, strengths_type='Uniform'):
 
     return sorted_strengths
 
-def convert_to_33x33(prob_matrix):
+def convert_to_n_and_1(prob_matrix, player_num = 32):
 
-    top_32 = prob_matrix[:32, :32]
-    bottom_32 = prob_matrix[32:, :]
-    avg_row_33 = np.mean(bottom_32[:, :32], axis=0)
-    avg_col_33 = np.mean(prob_matrix[:32, 32:], axis=1)
-    avg_33_33 = np.mean(prob_matrix[32:, 32:])
-    new_matrix = np.zeros((33, 33))
-    new_matrix[:32, :32] = top_32
-    new_matrix[32, :32] = avg_row_33
-    new_matrix[:32, 32] = avg_col_33
-    new_matrix[32, 32] = avg_33_33
+    top_n = prob_matrix[:player_num, :player_num]
+    bottom_n = prob_matrix[player_num:, :]
+    avg_row_a1 = np.mean(bottom_n[:, :player_num], axis=0)
+    avg_col_a1 = np.mean(prob_matrix[:player_num, player_num:], axis=1)
+    avg_a1_a1 = np.mean(prob_matrix[player_num:, player_num:])
+    new_matrix = np.zeros((player_num+1, player_num+1))
+    new_matrix[:player_num, :player_num] = top_n
+    new_matrix[player_num, :player_num] = avg_row_a1
+    new_matrix[:player_num, player_num] = avg_col_a1
+    new_matrix[player_num, player_num] = avg_a1_a1
 
     return new_matrix
-
-def strength_list_32(num_players=32, strengths_type='Uniform'):
-    if strengths_type == 'Uniform':
-        # 均匀分布
-        strengths = np.random.uniform(0, 1, num_players)
-
-    #幂律分布
-    elif strengths_type == 'PL':
-        a = 0.5
-        strengths = np.random.power(a, num_players)
-
-    # 正态分布 重映射正态分布
-    elif strengths_type == 'Normal':
-        normal_data = np.random.randn(num_players)
-        strengths = 1 / (1 + np.exp(-normal_data))
-
-    strengths_df = pd.DataFrame(strengths, columns=["Strength"])
-    strengths_df['Player'] = strengths_df.index
-
-    sorted_strengths_df = strengths_df.sort_values(by="Strength", ascending=False).reset_index(drop=True)
-
-    sorted_strengths = sorted_strengths_df['Strength'].values
-
-    return sorted_strengths
 
 def ndcg_weights(rankings):
     """计算 NDCG 权重"""
@@ -121,7 +99,7 @@ def convert_to_33x33_ndcg(prob_matrix):
 
     return new_matrix
 
-def calculate_simulation_matrix(simulated_strength,theta,num_players=32):
+def calculate_simulation_matrix(simulated_strength, theta, num_players=32):
 
     temp_M = np.zeros((num_players, num_players), dtype=float)
 
@@ -144,22 +122,22 @@ def calculate_simulation_matrix(simulated_strength,theta,num_players=32):
     return simulated_winning_matrix
 
 
-def simulation(matrix,distribution_type = 'Uniform'):
+def simulation(matrix, distribution_type = 'Uniform', num_players=32, simulate_and_1_flag = True):
     D = []
-    matrix_32x32 = matrix[:32, :32]
-    E = E_vector_calculate(matrix_32x32)
+    matrix_n_n = matrix[:num_players, :num_players]
+    E = E_vector_calculate(matrix_n_n, num_players)
 
     D_min = 10000
     min_theta = 0
-    simulated_strength = strength_list(num_players=48, strengths_type= distribution_type)
-    simulated_strength = simulated_strength[:32]
+    simulated_strength = strength_list(num_players = num_players, strengths_type= distribution_type, simulate_and_1_flag = simulate_and_1_flag)
+    simulated_strength = simulated_strength[:num_players]
     # simulated_strength = np.full(48, 0.5).tolist()
     for theta in np.arange(0, 2, 0.01):
         D_v = 0
         simulated_winning_matrix = calculate_simulation_matrix(simulated_strength,theta)
         # simulated_winning_matrix = standard_matrix(rows=33, cols=33)
         E_simulated = E_vector_calculate(simulated_winning_matrix)
-        for i in range(32):
+        for i in range(num_players):
             D_v += abs(E_simulated[i] - E[i])
 
         D.append(D_v)
@@ -169,13 +147,15 @@ def simulation(matrix,distribution_type = 'Uniform'):
     return D, min_theta , D_min
 
 
-def best_theta_simulation(distribution_type='Uniform', theta=1.0):
+def best_theta_simulation(distribution_type='Uniform', theta=1.0, num_players=32, simulate_and_1_flag = True):
     D = []
-    simulated_strength = strength_list(num_players=48, strengths_type=distribution_type)
 
     E_simulated_list = []  # 用于存储每次模拟的 E_simulated
 
     for i in range(100):
+        simulated_strength = strength_list(num_players=num_players, strengths_type=distribution_type,
+                                           simulate_and_1_flag=simulate_and_1_flag)
+
         simulated_winning_matrix = calculate_simulation_matrix(simulated_strength, theta)
         # simulated_winning_matrix = standard_matrix(rows=33, cols=33)
         E_simulated = E_vector_calculate(simulated_winning_matrix)

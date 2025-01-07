@@ -132,7 +132,4 @@ def tennis_rating():
 if __name__ == "__main__":
     a = tennis_rating()
     print(a)
-    csv_output_file = 'Data/Tennis_data/transfer_matrix.csv'
-    pd.DataFrame(a).to_csv(csv_output_file, index=False, header=False)
-    print(f"Matrix saved to {csv_output_file}")
     print(a[:,-1])
