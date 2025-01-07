@@ -14,7 +14,7 @@ def normalize(M):
     return normalized_M
 
 
-def scraft_rating(player_num = 64):
+def scraft_rating(player_num = 32):
     files = os.listdir('Data/Scraft_data/data/')
     M = np.zeros((101, 101))
     for item in files:
