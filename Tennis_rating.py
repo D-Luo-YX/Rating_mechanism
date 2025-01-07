@@ -5,7 +5,7 @@ import os
 import pandas as pd
 
 ### Converting the .txt to the Matrix
-def process_match_file(input_file, output_file, player_num=64):
+def process_match_file(input_file, output_file, player_num=32):
     matrix = np.zeros((player_num+1, player_num+1), dtype=int)
 
     with open(input_file, 'r', encoding='utf-8') as file:
@@ -37,7 +37,7 @@ def process_match_file(input_file, output_file, player_num=64):
 
     return  matrix
 
-def process_match_file_2(input_file, output_file, player_num=64):
+def process_match_file_2(input_file, output_file, player_num=32):
     matrix = np.zeros((10000, 10000), dtype=int)
 
     with open(input_file, 'r', encoding='utf-8') as file:
@@ -80,7 +80,7 @@ def normalize(M):
     return normalized_M
 
 
-def convert_matrix233(matrix, player_num=64):
+def convert_matrix_n_and_1(matrix, player_num=32):
     """Convert a larger matrix to a 33x33 matrix, skipping empty elements in calculations."""
 
     # 原始 32x32 部分保留
@@ -126,7 +126,7 @@ def tennis_rating():
     # print(winning_matrix_1)
     temp_matrix_2 = process_match_file_2(input_file, output_file)
     winning_matrix_2 = normalize(temp_matrix_2)
-    transfer_matrix = convert_matrix233(winning_matrix_2)
+    transfer_matrix = convert_matrix_n_and_1(winning_matrix_2)
     return transfer_matrix
 
 if __name__ == "__main__":

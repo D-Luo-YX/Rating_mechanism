@@ -4,13 +4,13 @@ import csv
 import os
 
 
-def process_match_file(file_path):
+def process_match_file(file_path, player_num = 32):
     """
     处理比赛记录文件，生成33*33的矩阵。
     file_path: str, 输入文件路径
     return: np.ndarray, 33*33矩阵
     """
-    win_matrix = np.zeros((33, 33), dtype=int)
+    win_matrix = np.zeros((player_num+1, player_num+1), dtype=int)
 
     with open(file_path, "r", encoding="utf-8") as file:
         for line in file:
@@ -21,8 +21,8 @@ def process_match_file(file_path):
                 parts = line.strip().split(",")
                 _, player1, rank1, result, player2, rank2 = parts
 
-                rank1 = int(rank1) if rank1.isdigit() and int(rank1) <= 33 else 33
-                rank2 = int(rank2) if rank2.isdigit() and int(rank2) <= 33 else 33
+                rank1 = int(rank1) if rank1.isdigit() and int(rank1) <= (player_num+1) else (player_num+1)
+                rank2 = int(rank2) if rank2.isdigit() and int(rank2) <= (player_num+1) else (player_num+1)
 
                 if result == "胜":
                     win_matrix[rank1 - 1, rank2 - 1] += 1
@@ -45,10 +45,10 @@ def normalize(M):
                     normalized_M[i, j] = M[i, j] / total
     return normalized_M
 
-def badminton_rating():
+def badminton_rating(player_num = 32):
     input_file = 'Data/Badminton_data/badminton_games.txt'
     output_file = 'Data/Badminton_data/matrix.txt'
-    temp_matrix = process_match_file(input_file)
+    temp_matrix = process_match_file(input_file, player_num=player_num)
     winning_matrix = normalize(temp_matrix)
     return winning_matrix
 

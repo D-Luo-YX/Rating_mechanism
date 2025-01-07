@@ -101,6 +101,7 @@ def plot_R_and_SR(best_uniform, best_powerlaw, best_normal, E, u_theta, PL_theta
     plt.show()
 
 def plot_single_match(match_name,u_theta, PL_theta, normal_theta):
+    winning_matrix = []
     if match_name == 'Go':
         winning_matrix = go_rating()
     if match_name == 'Tennis':
