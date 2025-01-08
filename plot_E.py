@@ -62,7 +62,7 @@ def plot_E():
 
 
 
-def plot_R_and_SR(best_uniform, best_powerlaw, best_normal, E, u_theta, PL_theta, normal_theta):
+def plot_R_and_SR(match_name,best_uniform, best_powerlaw, best_normal, E, u_theta, PL_theta, normal_theta):
     """
     Plots the four lists (best_uniform, best_powerlaw, best_normal, E) on the same graph,
     following the single-line plot style.
@@ -81,18 +81,20 @@ def plot_R_and_SR(best_uniform, best_powerlaw, best_normal, E, u_theta, PL_theta
     x_normal = np.arange(1, len(best_normal))
     x_E = np.arange(1, len(E))
 
+    plot_num = len(E)-1
+
     # Plot each list with single-line style
-    plt.plot(x_uniform, best_uniform[:-1], marker='o', linestyle='-', color='blue', label=f'Best Uniform theta = {u_theta}')
-    plt.plot(x_powerlaw, best_powerlaw[:-1], marker='o', linestyle='-', color='green', label=f'Best Power Law theta = {PL_theta}')
-    plt.plot(x_normal, best_normal[:-1], marker='o', linestyle='-', color='red', label=f'Best Normal theta = {normal_theta}')
-    plt.plot(x_E, E[:-1], marker='o', linestyle='-', color='purple', label='R Vector')
+    plt.plot(x_uniform, best_uniform[:plot_num], marker='o', linestyle='-', color='blue', label=f'Best Uniform theta = {u_theta}')
+    plt.plot(x_powerlaw, best_powerlaw[:plot_num], marker='o', linestyle='-', color='green', label=f'Best Power Law theta = {PL_theta}')
+    plt.plot(x_normal, best_normal[:plot_num], marker='o', linestyle='-', color='red', label=f'Best Normal theta = {normal_theta}')
+    plt.plot(x_E, E[:plot_num], marker='o', linestyle='-', color='purple', label='R Vector')
 
     # Setting x-axis ticks
     max_length = max(len(best_uniform), len(best_powerlaw), len(best_normal), len(E))
     plt.xticks(np.arange(1, max_length + 1))
 
     # Add titles, labels, and legend
-    plt.title('Trends of R and Simulated R', fontsize=14)
+    plt.title(f'{match_name} Match -- Trends of R and Simulated R', fontsize=14)
     plt.xlabel('Index (starting from 1)', fontsize=12)
     plt.ylabel('Values', fontsize=12)
     plt.grid(True, linestyle='--', alpha=0.7)
@@ -116,7 +118,7 @@ def plot_single_match(match_name,u_theta, PL_theta, normal_theta):
     E = E_vector_calculate(winning_matrix)
 
 
-    plot_R_and_SR(best_uniform, best_powerlaw, best_normal, E, u_theta, PL_theta, normal_theta)
+    plot_R_and_SR(match_name,best_uniform, best_powerlaw, best_normal, E, u_theta, PL_theta, normal_theta)
 
 if __name__ == '__main__':
     match = 'Go'

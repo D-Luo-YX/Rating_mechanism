@@ -3,6 +3,8 @@ import os
 import matplotlib.pyplot as plt
 import random
 
+from sympy import false
+
 from Go_rating import go_rating
 from Tennis_rating import tennis_rating
 from Badminton_rating import badminton_rating
@@ -84,33 +86,35 @@ if __name__ == "__main__":
     random.seed(seed)
 
     winning_matrix = []
-
-    match_name = 'Star'
-    if match_name == 'Go':
-        winning_matrix = go_rating()
-    if match_name == 'Tennis':
-        winning_matrix = tennis_rating()
-    if match_name == 'Badminton':
-        winning_matrix = badminton_rating()
-    if match_name == 'Star':
-        winning_matrix = scraft_rating()
-    if match_name == 'Random':
-        winning_matrix = standard_matrix(rows=33, cols=33)
-    # strength_type = 'Uniform'
-    # strength_type = 'PL'
-    # strength_type = 'Normal'
-    strength = ['Normal','Uniform','PL']
-    # strength = ['Standard']
-    all_D = []
-    for strength_type in strength:
-        for iteration in range(100):
-            # D, min_theta , D_min = simulation(winning_matrix,distribution_type=strength_type)#三种分布方式 'Uniform','PL','Normal' 分别代表均匀分布，幂律分布，正态分布。
-            D, _, _ = simulation(winning_matrix,distribution_type=strength_type)  # 三种分布方式 'Uniform','PL','Normal' 分别代表均匀分布，幂律分布，正态分布。
-            all_D.append(D)
-        all_D_array = np.array(all_D)
-        D_mean = np.mean(all_D_array, axis=0)
-        save_result_to_txt(D_mean,f'Result_32/{match_name}/{strength_type}.txt')
-        # save_result_to_txt(D_mean, f'Result/{match_name}/{strength_type}.txt')
-    uniform_min, PL_min, Normal_min = plot_function(match_name)
-    print(uniform_min, PL_min, Normal_min)
-    plot_single_match(match_name, uniform_min, PL_min, Normal_min)
+    match_set = ['Go','Tennis','Badminton','Star']
+    for match in match_set:
+        match_name = match
+    # match_name = 'Go'
+        if match_name == 'Go':
+            winning_matrix = go_rating()
+        if match_name == 'Tennis':
+            winning_matrix = tennis_rating()
+        if match_name == 'Badminton':
+            winning_matrix = badminton_rating()
+        if match_name == 'Star':
+            winning_matrix = scraft_rating()
+        if match_name == 'Random':
+            winning_matrix = standard_matrix(rows=33, cols=33)
+        # strength_type = 'Uniform'
+        # strength_type = 'PL'
+        # strength_type = 'Normal'
+        strength = ['Normal','Uniform','PL']
+        # strength = ['Standard']
+        all_D = []
+        for strength_type in strength:
+            for iteration in range(100):
+                # D, min_theta , D_min = simulation(winning_matrix,distribution_type=strength_type)#三种分布方式 'Uniform','PL','Normal' 分别代表均匀分布，幂律分布，正态分布。
+                D, _, _ = simulation(winning_matrix,distribution_type=strength_type,simulate_and_1_flag=false)  # 三种分布方式 'Uniform','PL','Normal' 分别代表均匀分布，幂律分布，正态分布。
+                all_D.append(D)
+            all_D_array = np.array(all_D)
+            D_mean = np.mean(all_D_array, axis=0)
+            save_result_to_txt(D_mean,f'Result_32/{match_name}/{strength_type}.txt')
+            # save_result_to_txt(D_mean, f'Result/{match_name}/{strength_type}.txt')
+        uniform_min, PL_min, Normal_min = plot_function(match_name)
+        print(uniform_min, PL_min, Normal_min)
+        plot_single_match(match_name, uniform_min, PL_min, Normal_min)
