@@ -1,0 +1,5 @@
+Name Uniform_Min PL_Min Normal_Min
+Go 0.88 0.5 1.2
+Tennis 1.11 0.7 1.45
+Badminton 1.7 1.09 2.0
+Star 1.16 0.71 1.47

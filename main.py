@@ -87,6 +87,9 @@ if __name__ == "__main__":
 
     winning_matrix = []
     match_set = ['Go','Tennis','Badminton','Star']
+
+    results = []
+
     for match in match_set:
         match_name = match
     # match_name = 'Go'
@@ -117,4 +120,11 @@ if __name__ == "__main__":
             # save_result_to_txt(D_mean, f'Result/{match_name}/{strength_type}.txt')
         uniform_min, PL_min, Normal_min = plot_function(match_name)
         print(uniform_min, PL_min, Normal_min)
+
+        results.append([match_name, uniform_min, PL_min, Normal_min])
+
         plot_single_match(match_name, uniform_min, PL_min, Normal_min)
+
+    results_array = np.array(results, dtype=object)  # 使用 dtype=object 以兼容字符串列
+    header = "Name Uniform_Min PL_Min Normal_Min"
+    np.savetxt("Best.txt", results_array, fmt="%s", header=header, comments="")
