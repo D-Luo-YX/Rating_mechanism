@@ -155,20 +155,51 @@ def robin_round(player_information,theta):
 
     match_schedule = generate_match_pairs(num_rows)
     for i in range(num_rows-1):
-        one_round_match(rr_information, match_schedule[i],theta)
+        rr_information = one_round_match(rr_information, match_schedule[i],theta)
 
     ranked_rr_information = rank_players(rr_information)
 
     return rr_information, ranked_rr_information
 
-def swiss_round(player_information,theta):
+def sr_one_round_match_list(player_information):
+    match_list = []
 
-    sw_information = player_information.copy()
+    player_information = player_information.sort_values(by=["Score", "Strength"], ascending=[False, False])
+    players = player_information["Player"].tolist()
+    scores = player_information["Score"].tolist()
+    defeated_opponents = player_information["Defeated_Opponents"].tolist()
+    used_players = set()
+
+    while players:
+        p1 = players.pop(0)  # 选出当前最高分的选手
+        if p1 in used_players:
+            continue  # 如果该选手已匹配过，则跳过
+
+        # 尝试为 p1 找到一个合适的对手 p2
+        for i, p2 in enumerate(players):
+            if p2 not in defeated_opponents[p1 - 1]:  # 检查 p1 和 p2 是否对战过
+                match_list.append((p1, p2))  # 匹配成功
+                used_players.add(p1)
+                used_players.add(p2)
+                players.pop(i)  # 将 p2 移出待匹配列表
+                break
+
+    if len(players) == 1:
+        p1 = players[0]
+        match_list.append((p1, None))  # None 表示轮空
+
+    return match_list
 
 
+def swiss_round(player_information,theta, round_num):
 
-    ranked_sw_information = rank_players(sw_information)
-    return sw_information, ranked_sw_information
+    sr_information = player_information.copy()
+    num_rows = sr_information.shape[0]
+    for i in range(round_num):
+        ont_round_list = sr_one_round_match_list(player_information)
+        sr_information = one_round_match(sr_information, ont_round_list, theta)
+    ranked_sr_information = rank_players(sr_information)
+    return sr_information, ranked_sr_information
 
 def calculate_coefficient(player_information, ranked_information):
     """
@@ -238,12 +269,21 @@ def calculate_ndcg_coefficient(player_information, ranked_information):
 
 if __name__ == "__main__":
     Initial_Player_DataFrame = strength_list(num_players=32, strengths_type='Uniform', simulate_and_1_flag=False)
-    rr, ranked_rr = robin_round(Initial_Player_DataFrame, 0.88)
+    # rr, ranked_rr = robin_round(Initial_Player_DataFrame, 0.88)
+    sr, ranked_sr = swiss_round(Initial_Player_DataFrame, theta=0.88, round_num=30)
 
-    spearman_score_rr = calculate_coefficient(rr,ranked_rr)
-    ndcg_spearman_score_rr = calculate_ndcg_coefficient(rr,ranked_rr)
+    # spearman_score_rr = calculate_coefficient(rr,ranked_rr)
+    # ndcg_spearman_score_rr = calculate_ndcg_coefficient(rr,ranked_rr)
+    #
+    # print(f"Spearman correlation coefficient: {spearman_score_rr}")
+    # print(f"NDCG-Spearman correlation coefficient: {ndcg_spearman_score_rr}")
 
-    print(f"Spearman correlation coefficient: {spearman_score_rr}")
-    print(f"NDCG-Spearman correlation coefficient: {ndcg_spearman_score_rr}")
+    spearman_score_sr = calculate_coefficient(sr,ranked_sr)
+    ndcg_spearman_score_sr = calculate_ndcg_coefficient(sr,ranked_sr)
+
+    print(f"Spearman correlation coefficient: {spearman_score_sr}")
+    print(f"NDCG-Spearman correlation coefficient: {ndcg_spearman_score_sr}")
+
+
     # processing_information = win_judge(theta=0.88,p1=1,p2=10,player_information=Initial_Player_DataFrame)
     # print(processing_information)
