@@ -80,27 +80,74 @@ def normalize(M):
     return normalized_M
 
 
-def convert_matrix_n_and_1(matrix, player_num=32):
-    """Convert a larger matrix to a 33x33 matrix, skipping empty elements in calculations."""
+# def convert_matrix_n_and_1(matrix, player_num=32):
+#     """Convert a larger matrix to a 33x33 matrix, skipping empty elements in calculations."""
 
-    # 原始 32x32 部分保留
+#     # 原始 32x32 部分保留
+#     top_32 = matrix[:player_num, :player_num]
+
+#     # 计算第 i 行在第 归并 列之后的非零元素统计
+#     avg_col_last_modified = np.array([
+#         np.mean([
+#             matrix[i, j]
+#             for j in range(player_num, matrix.shape[1])
+#             if matrix[i, j] > 0 or matrix[j, i] > 0
+#         ]) if np.any([matrix[i, j] > 0 or matrix[j, i] > 0 for j in range(player_num, matrix.shape[1])]) else 0
+#         for i in range(player_num)
+#     ])
+#     # 计算第 j 列在第 归并 行之后的非零元素统计
+#     avg_row_last_modified = np.array([
+#         np.mean([
+#             matrix[i, j]
+#             for i in range(player_num, matrix.shape[0])
+#             if matrix[i, j] > 0 or matrix[j, i] > 0  # 检查非零元素
+#         ]) if np.any([
+#             matrix[i, j] > 0 or matrix[j, i] > 0
+#             for i in range(player_num, matrix.shape[0])
+#         ]) else 0
+#         for j in range(player_num)
+#     ])
+
+#     # 创建新的 player_num + 1 矩阵
+#     new_matrix = np.zeros((player_num+1, player_num+1))
+#     new_matrix[:player_num, :player_num] = top_32
+#     new_matrix[:player_num, player_num] = avg_col_last_modified[:player_num]  # 修正为只取前 player_num 列 的结果
+#     new_matrix[player_num, :player_num] = avg_row_last_modified[:player_num]  # 修正为只取前 player_num 行 的结果
+#     new_matrix[player_num, player_num] = 0
+
+#     return new_matrix
+
+def convert_to_33x33_ndcg(matrix, player_num=32):
+    # 保留前 player_num x player_num 的部分
     top_32 = matrix[:player_num, :player_num]
 
-    # 计算第 i 行在第 归并 列之后的非零元素统计
+    # 计算第 i 行在第归并列之后的损失因子加权平均
     avg_col_last_modified = np.array([
-        np.mean([
-            matrix[i, j]
+        np.sum([
+            matrix[i, j] / (np.log2(j - player_num + 2) + 1)
             for j in range(player_num, matrix.shape[1])
             if matrix[i, j] > 0 or matrix[j, i] > 0
-        ]) if np.any([matrix[i, j] > 0 or matrix[j, i] > 0 for j in range(player_num, matrix.shape[1])]) else 0
+        ]) / np.sum([
+            1 / (np.log2(j - player_num + 2) + 1)
+            for j in range(player_num, matrix.shape[1])
+            if matrix[i, j] > 0 or matrix[j, i] > 0
+        ]) if np.any([
+            matrix[i, j] > 0 or matrix[j, i] > 0
+            for j in range(player_num, matrix.shape[1])
+        ]) else 0
         for i in range(player_num)
     ])
-    # 计算第 j 列在第 归并 行之后的非零元素统计
+
+    # 计算第 j 列在第归并行之后的损失因子加权平均
     avg_row_last_modified = np.array([
-        np.mean([
-            matrix[i, j]
+        np.sum([
+            matrix[i, j] / (np.log2(i - player_num + 2) + 1)
             for i in range(player_num, matrix.shape[0])
-            if matrix[i, j] > 0 or matrix[j, i] > 0  # 检查非零元素
+            if matrix[i, j] > 0 or matrix[j, i] > 0
+        ]) / np.sum([
+            1 / (np.log2(i - player_num + 2) + 1)
+            for i in range(player_num, matrix.shape[0])
+            if matrix[i, j] > 0 or matrix[j, i] > 0
         ]) if np.any([
             matrix[i, j] > 0 or matrix[j, i] > 0
             for i in range(player_num, matrix.shape[0])
@@ -108,26 +155,25 @@ def convert_matrix_n_and_1(matrix, player_num=32):
         for j in range(player_num)
     ])
 
-    # 创建新的 player_num + 1 矩阵
-    new_matrix = np.zeros((player_num+1, player_num+1))
+    new_matrix = np.zeros((player_num + 1, player_num + 1))
     new_matrix[:player_num, :player_num] = top_32
-    new_matrix[:player_num, player_num] = avg_col_last_modified[:player_num]  # 修正为只取前 player_num 列 的结果
-    new_matrix[player_num, :player_num] = avg_row_last_modified[:player_num]  # 修正为只取前 player_num 行 的结果
-    new_matrix[player_num, player_num] = 0
+    new_matrix[:player_num, player_num] = avg_col_last_modified  
+    new_matrix[player_num, :player_num] = avg_row_last_modified 
+    new_matrix[player_num, player_num] = 0 
 
     return new_matrix
 
-
-def tennis_rating():
+def tennis_rating(rating_num_32):
     input_file = 'Data/Tennis_data/match_data.txt'
     output_file = 'Data/Tennis_data/matrix.txt'
     # temp_matrix_1 = process_match_file(input_file, output_file)
     # winning_matrix_1 = normalize(temp_matrix_1)
     # print(winning_matrix_1)
     temp_matrix_2 = process_match_file_2(input_file, output_file)
-    winning_matrix_2 = normalize(temp_matrix_2)
-    transfer_matrix = convert_matrix_n_and_1(winning_matrix_2)
-    return transfer_matrix
+    result_matrix = normalize(temp_matrix_2)
+    if rating_num_32 == False:
+        result_matrix = convert_to_33x33_ndcg(result_matrix)
+    return result_matrix
 
 if __name__ == "__main__":
     a = tennis_rating()

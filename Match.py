@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
-
-
+import matplotlib.pyplot as plt
+from scipy.stats import spearmanr
 
 def strength_list(num_players=32, strengths_type='Uniform', simulate_and_1_flag = False):
     strengths = []
@@ -33,9 +33,8 @@ def strength_list(num_players=32, strengths_type='Uniform', simulate_and_1_flag 
         "Player": range(1, simulate_num + 1),  # 选手编号从 1 开始
         "Strength": sorted_strengths,
         "Score": 0,  # 初始化分数为 0
-        "Defeated_Opponents": [[] for _ in range(simulate_num)]  # 初始化为一个空列表
+        "Defeated_Opponents": [[] for _ in range(simulate_num)]  # 初始化战胜对手列表为空
     })
-
     # 按实力排序
     sorted_strengths_df = strengths_df.sort_values(by="Strength", ascending=False).reset_index(drop=True)
 
@@ -161,14 +160,27 @@ def robin_round(player_information,theta):
 
     return rr_information, ranked_rr_information
 
+def sr_first_round_match_list(player_information):
+    # 在瑞士轮中，第一轮乱序排列
+    match_list = []
+    players = player_information["Player"].tolist()
+    np.random.shuffle(players)
+    while players:
+        p1 = players.pop(0)
+        p2 = players.pop(0) if players else None
+        match_list.append((p1, p2))
+    return match_list
+
 def sr_one_round_match_list(player_information):
+    
     match_list = []
 
+    # 按得分和实力降序排列
     player_information = player_information.sort_values(by=["Score", "Strength"], ascending=[False, False])
     players = player_information["Player"].tolist()
     scores = player_information["Score"].tolist()
     defeated_opponents = player_information["Defeated_Opponents"].tolist()
-    used_players = set()
+    used_players = set() # 记录已匹配过的选手
 
     while players:
         p1 = players.pop(0)  # 选出当前最高分的选手
@@ -192,12 +204,14 @@ def sr_one_round_match_list(player_information):
 
 
 def swiss_round(player_information,theta, round_num):
-
     sr_information = player_information.copy()
     num_rows = sr_information.shape[0]
     for i in range(round_num):
-        ont_round_list = sr_one_round_match_list(player_information)
-        sr_information = one_round_match(sr_information, ont_round_list, theta)
+        if i == 0:
+            one_round_list = sr_first_round_match_list(player_information)
+        else:
+            one_round_list = sr_one_round_match_list(player_information)
+        sr_information = one_round_match(sr_information, one_round_list, theta)
     ranked_sr_information = rank_players(sr_information)
     return sr_information, ranked_sr_information
 
@@ -231,59 +245,148 @@ def calculate_coefficient(player_information, ranked_information):
     return spearman_score
 
 
+# def calculate_ndcg_coefficient(player_information, ranked_information):
+#     """
+#     计算引入 NDCG 思想的 Spearman 相关系数，衡量初始实力排名与比赛结果排名的相关性。
+
+#     参数：
+#     - player_information: 初始选手信息的 DataFrame，按实力排序
+#     - ranked_information: 比赛结果排名后的 DataFrame，按得分排名
+
+#     返回：
+#     - ndcg_spearman_score: 引入 NDCG 思想的 Spearman 相关系数
+#     """
+#     # 提取选手编号列表
+#     initial_players = player_information['Player'].tolist()
+#     ranked_players = ranked_information['Player'].tolist()
+
+#     # 将初始排名和比赛排名转换为 Pandas Series，索引为 Player
+#     initial_rank = pd.Series(range(1, len(initial_players) + 1), index=initial_players)
+#     result_rank = pd.Series(range(1, len(ranked_players) + 1), index=ranked_players)
+
+#     # 计算排名差 |d_i| 和折扣因子 1 / log2(i + 1)
+#     n = len(player_information)
+#     d_squared_sum = 0
+#     for i, player in enumerate(initial_rank.index):
+#         d_i = abs(initial_rank[player] - result_rank[player])  # 计算选手实际排名的差异
+#         discount = 1 / np.log2(i + 2)  # 折扣因子，i + 2 因为 i 从 0 开始
+#         d_squared_sum += (d_i ** 2) * discount
+
+#     # 计算理想情况下的归一化因子
+#     max_d_squared_sum = np.sum([(i + 1) ** 2 / np.log2(i + 2) for i in range(n)])
+
+#     # 计算引入 NDCG 思想的 Spearman 相关系数
+#     ndcg_spearman_score = 1 - (6 * d_squared_sum) / max_d_squared_sum
+
+
+#     return ndcg_spearman_score
+
 def calculate_ndcg_coefficient(player_information, ranked_information):
     """
     计算引入 NDCG 思想的 Spearman 相关系数，衡量初始实力排名与比赛结果排名的相关性。
-
+    
     参数：
-    - player_information: 初始选手信息的 DataFrame，按实力排序
-    - ranked_information: 比赛结果排名后的 DataFrame，按得分排名
+    - player_information: 初始选手信息的 DataFrame，按实力排序，包含 'player_id' 和 'initial_rank' 列
+    - ranked_information: 比赛结果排名后的 DataFrame，按得分排名，包含 'player_id' 和 'final_rank' 列
 
     返回：
     - ndcg_spearman_score: 引入 NDCG 思想的 Spearman 相关系数
     """
-    # 提取选手编号列表
-    initial_players = player_information['Player'].tolist()
-    ranked_players = ranked_information['Player'].tolist()
-
-    # 将初始排名和比赛排名转换为 Pandas Series，索引为 Player
-    initial_rank = pd.Series(range(1, len(initial_players) + 1), index=initial_players)
-    result_rank = pd.Series(range(1, len(ranked_players) + 1), index=ranked_players)
-
-    # 计算排名差 |d_i| 和折扣因子 1 / log2(i + 1)
-    n = len(player_information)
-    d_squared_sum = 0
-    for i, player in enumerate(initial_rank.index):
-        d_i = abs(initial_rank[player] - result_rank[player])  # 计算选手实际排名的差异
-        discount = 1 / np.log2(i + 2)  # 折扣因子，i + 2 因为 i 从 0 开始
-        d_squared_sum += (d_i ** 2) * discount
-
-    # 计算理想情况下的归一化因子
-    max_d_squared_sum = np.sum([(i + 1) ** 2 / np.log2(i + 2) for i in range(n)])
-
-    # 计算引入 NDCG 思想的 Spearman 相关系数
-    ndcg_spearman_score = 1 - (6 * d_squared_sum) / max_d_squared_sum
+    # 获取初始排名和比赛结果排名
+    initial_rank = player_information['Player'].values
+    final_rank = ranked_information['Player'].values
+    
+    # 计算折扣因子
+    n = len(initial_rank)
+    discount_factors = 1 / np.log2(np.arange(1, n + 1) + 1)  # 折扣因子
+    
+    # 计算加权的排名相关性
+    weighted_initial_rank = initial_rank * discount_factors
+    weighted_final_rank = final_rank * discount_factors
+    
+    # 计算 Spearman 相关系数
+    correlation, _ = spearmanr(weighted_initial_rank, weighted_final_rank)
+    
+    return correlation
 
 
-    return ndcg_spearman_score
+# if __name__ == "__main__":
+#     Initial_Player_DataFrame = strength_list(num_players=32, strengths_type='Uniform', simulate_and_1_flag=False)
+#     # rr, ranked_rr = robin_round(Initial_Player_DataFrame, 0.88)
+#     sr, ranked_sr = swiss_round(Initial_Player_DataFrame, theta=0.88, round_num=30)
+
+#     # spearman_score_rr = calculate_coefficient(rr,ranked_rr)
+#     # ndcg_spearman_score_rr = calculate_ndcg_coefficient(rr,ranked_rr)
+#     #
+#     # print(f"Spearman correlation coefficient: {spearman_score_rr}")
+#     # print(f"NDCG-Spearman correlation coefficient: {ndcg_spearman_score_rr}")
+
+#     spearman_score_sr = calculate_coefficient(sr,ranked_sr)
+#     ndcg_spearman_score_sr = calculate_ndcg_coefficient(sr,ranked_sr)
+
+#     print(f"Spearman correlation coefficient: {spearman_score_sr}")
+#     print(f"NDCG-Spearman correlation coefficient: {ndcg_spearman_score_sr}")
+
+
+#     # processing_information = win_judge(theta=0.88,p1=1,p2=10,player_information=Initial_Player_DataFrame)
+#     # print(processing_information)
+
+def save_data(data, filename):
+    # 如果data是列表，则将其转换为DataFrame
+    if isinstance(data, list):
+        data = pd.DataFrame(data)
+    data.to_csv(filename, index=False)
 
 if __name__ == "__main__":
     Initial_Player_DataFrame = strength_list(num_players=32, strengths_type='Uniform', simulate_and_1_flag=False)
-    # rr, ranked_rr = robin_round(Initial_Player_DataFrame, 0.88)
-    sr, ranked_sr = swiss_round(Initial_Player_DataFrame, theta=0.88, round_num=30)
+    spearman_score_rrs = []
+    ndcg_spearman_score_rrs = []
+    spearman_score_srs = []
+    ndcg_spearman_score_srs = []
+    
+    theta_values = np.arange(0, 4, 0.1)
 
-    # spearman_score_rr = calculate_coefficient(rr,ranked_rr)
-    # ndcg_spearman_score_rr = calculate_ndcg_coefficient(rr,ranked_rr)
-    #
-    # print(f"Spearman correlation coefficient: {spearman_score_rr}")
-    # print(f"NDCG-Spearman correlation coefficient: {ndcg_spearman_score_rr}")
+    for theta in theta_values:
+        print(f"Theta: {theta}")
+        # 求100次实验下的均值，以增强稳定性
+        spearman_score_rr_time = []
+        ndcg_spearman_score_rr_time= []
+        spearman_score_sr_time = []
+        ndcg_spearman_score_sr_time = []
+        for i in range(1):
+            rr, ranked_rr = robin_round(Initial_Player_DataFrame, theta)
+            sr, ranked_sr = swiss_round(Initial_Player_DataFrame, theta, round_num=30)
 
-    spearman_score_sr = calculate_coefficient(sr,ranked_sr)
-    ndcg_spearman_score_sr = calculate_ndcg_coefficient(sr,ranked_sr)
+            spearman_score_rr = calculate_coefficient(rr,ranked_rr)
+            ndcg_spearman_score_rr = calculate_ndcg_coefficient(rr,ranked_rr)
 
-    print(f"Spearman correlation coefficient: {spearman_score_sr}")
-    print(f"NDCG-Spearman correlation coefficient: {ndcg_spearman_score_sr}")
+            spearman_score_sr = calculate_coefficient(sr,ranked_sr)
+            ndcg_spearman_score_sr = calculate_ndcg_coefficient(sr,ranked_sr)
+
+            spearman_score_rr_time.append(spearman_score_rr)
+            ndcg_spearman_score_rr_time.append(ndcg_spearman_score_rr)
+            spearman_score_sr_time.append(spearman_score_sr)
+            ndcg_spearman_score_sr_time.append(ndcg_spearman_score_sr)
 
 
-    # processing_information = win_judge(theta=0.88,p1=1,p2=10,player_information=Initial_Player_DataFrame)
-    # print(processing_information)
+        spearman_score_rrs.append(np.mean(spearman_score_rr_time))
+        ndcg_spearman_score_rrs.append(np.mean(ndcg_spearman_score_rr_time))
+        spearman_score_srs.append(np.mean(spearman_score_sr_time))
+        ndcg_spearman_score_srs.append(np.mean(ndcg_spearman_score_sr_time))
+
+    save_data(spearman_score_rrs, f"dataresult/spearman_score_rrs.txt")
+    save_data(ndcg_spearman_score_rrs, f"dataresult/ndcg_spearman_score_rrs.txt")
+    save_data(spearman_score_srs, f"dataresult/spearman_score_srs.txt")
+    save_data(ndcg_spearman_score_srs, f"dataresult/ndcg_spearman_score_srs.txt")
+
+    # 在一张图片中绘制四条曲线
+    # plt.figure(figsize=(12, 6))
+    plt.plot(theta_values,spearman_score_rrs,label="RR Spearman",color='blue')
+    plt.plot(theta_values,ndcg_spearman_score_rrs,label="RR NDCG-Spearman",color='green')
+    plt.plot(theta_values,spearman_score_srs,label="SR Spearman",color='red')
+    plt.plot(theta_values,ndcg_spearman_score_srs,label="SR NDCG-Spearman",color='purple')
+    plt.xlabel("Theta")
+    plt.ylabel("Spearman")
+    plt.legend()
+    plt.savefig("dataresult/spearman.png")
+    plt.show()

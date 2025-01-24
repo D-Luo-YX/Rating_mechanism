@@ -19,7 +19,7 @@ def single_matrix(filename, player_num = 32):
     rank_list_temp = rank_list_temp_[:player_num]
     win_matrix = np.zeros((player_num+1, player_num+1), dtype=int)
 
-    input_file = f'Data/Go_data/{filename}/player_games.txt'  # 替换为你的文件路径
+    input_file = f'Data/Go_data/{filename}/player_games.txt'
     with open(input_file, "r", encoding="utf-8") as file:
         for line in file:
             try:
@@ -71,13 +71,59 @@ def normalize(M):
                     normalized_M[i, j] = M[i, j] / total
     return normalized_M
 
+def convert_to_33x33_ndcg(matrix, player_num=32):
+    # 保留前 player_num x player_num 的部分
+    top_32 = matrix[:player_num, :player_num]
+
+    # 计算第 i 行在第归并列之后的损失因子加权平均
+    avg_col_last_modified = np.array([
+        np.sum([
+            matrix[i, j] / (np.log2(j - player_num + 2) + 1)
+            for j in range(player_num, matrix.shape[1])
+            if matrix[i, j] > 0 or matrix[j, i] > 0
+        ]) / np.sum([
+            1 / (np.log2(j - player_num + 2) + 1)
+            for j in range(player_num, matrix.shape[1])
+            if matrix[i, j] > 0 or matrix[j, i] > 0
+        ]) if np.any([
+            matrix[i, j] > 0 or matrix[j, i] > 0
+            for j in range(player_num, matrix.shape[1])
+        ]) else 0
+        for i in range(player_num)
+    ])
+
+    # 计算第 j 列在第归并行之后的损失因子加权平均
+    avg_row_last_modified = np.array([
+        np.sum([
+            matrix[i, j] / (np.log2(i - player_num + 2) + 1)
+            for i in range(player_num, matrix.shape[0])
+            if matrix[i, j] > 0 or matrix[j, i] > 0
+        ]) / np.sum([
+            1 / (np.log2(i - player_num + 2) + 1)
+            for i in range(player_num, matrix.shape[0])
+            if matrix[i, j] > 0 or matrix[j, i] > 0
+        ]) if np.any([
+            matrix[i, j] > 0 or matrix[j, i] > 0
+            for i in range(player_num, matrix.shape[0])
+        ]) else 0
+        for j in range(player_num)
+    ])
+
+    new_matrix = np.zeros((player_num + 1, player_num + 1))
+    new_matrix[:player_num, :player_num] = top_32
+    new_matrix[:player_num, player_num] = avg_col_last_modified 
+    new_matrix[player_num, :player_num] = avg_row_last_modified 
+    new_matrix[player_num, player_num] = 0 
+
+    return new_matrix
+
 def single_year(player_num=32):
     begin_year = 1980
     M_temp = single_matrix(f'{begin_year}-01-01_to_{begin_year + 1}-01-01',player_num=player_num)
     normalized_matrix = normalize(M_temp)
     return normalized_matrix
 
-def go_rating(player_num = 32):
+def go_rating(rating_num_32, player_num = 32):
     begin_year = 1980
     end_year = 2020
     M_temp = single_matrix(f'{begin_year}-01-01_to_{begin_year + 1}-01-01',player_num=player_num)
@@ -85,9 +131,10 @@ def go_rating(player_num = 32):
     for year in range(begin_year+1, end_year):
         flag += 1
         M_temp += single_matrix(f'{year}-01-01_to_{year+1}-01-01')
-    normalized_matrix = normalize(M_temp)
-    # print(normalized_matrix)
-    return normalized_matrix
+    result_matrix = normalize(M_temp)
+    if rating_num_32 == False:
+        result_matrix = convert_to_33x33_ndcg(result_matrix)
+    return result_matrix
 
 if __name__ == '__main__':
     a = go_rating()

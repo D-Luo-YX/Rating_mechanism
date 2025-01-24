@@ -1,6 +1,8 @@
 import numpy as np
+import os
 import matplotlib.pyplot as plt
 from validation import E_vector_calculate
+# from validation import E_vector_calculate_ndcg
 from Go_rating import go_rating
 from Scraft_rating import scraft_rating
 from Tennis_rating import tennis_rating
@@ -38,31 +40,31 @@ def plot_E_matches(E_list, matches):
     plt.tight_layout()
     plt.show()
 
-def plot_E():
-    # matches = ['Go', 'Tennis', 'Star','Badminton']
-    matches = ['Go', 'Tennis', 'Star']
-    E_list = []
+# def plot_E():
+#     # matches = ['Go', 'Tennis', 'Star','Badminton']
+#     matches = ['Go', 'Tennis', 'Star']
+#     E_list = []
 
-    # Calculate E vectors for each match
-    for match_name in matches:
-        if match_name == 'Go':
-            winning_matrix = go_rating()
-        elif match_name == 'Tennis':
-            winning_matrix = tennis_rating()
-        elif match_name == 'Badminton':
-            winning_matrix = badminton_rating()
-        elif match_name == 'Star':
-            winning_matrix = scraft_rating()
+#     # Calculate E vectors for each match
+#     for match_name in matches:
+#         if match_name == 'Go':
+#             winning_matrix = go_rating()
+#         elif match_name == 'Tennis':
+#             winning_matrix = tennis_rating()
+#         elif match_name == 'Badminton':
+#             winning_matrix = badminton_rating()
+#         elif match_name == 'Star':
+#             winning_matrix = scraft_rating()
 
-        E = E_vector_calculate(winning_matrix)
-        E_list.append(E[:-1])
+#         E = E_vector_calculate(winning_matrix)
+#         E_list.append(E[:-1])
 
-    # Plot all E trends
-    plot_E_matches(E_list, matches)
+#     # Plot all E trends
+#     plot_E_matches(E_list, matches)
 
 
 
-def plot_R_and_SR(match_name,best_uniform, best_powerlaw, best_normal, E, u_theta, PL_theta, normal_theta):
+def plot_R_and_SR(match_name,best_uniform, best_powerlaw, best_normal, E, u_theta, PL_theta, normal_theta, save_figure_path):
     """
     Plots the four lists (best_uniform, best_powerlaw, best_normal, E) on the same graph,
     following the single-line plot style.
@@ -100,25 +102,17 @@ def plot_R_and_SR(match_name,best_uniform, best_powerlaw, best_normal, E, u_thet
     plt.grid(True, linestyle='--', alpha=0.7)
     plt.legend(fontsize=12)
     plt.tight_layout()
-    plt.show()
+    # plt.show()
+    plt.savefig(os.path.join(save_figure_path, f'{match_name}_R_SR.png'))
 
-def plot_single_match(match_name,u_theta, PL_theta, normal_theta):
+def plot_single_match(match_name,u_theta, PL_theta, normal_theta, match_to_matrix, save_figure_path, num_players, simulate_and_1_flag):
     winning_matrix = []
-    if match_name == 'Go':
-        winning_matrix = go_rating()
-    if match_name == 'Tennis':
-        winning_matrix = tennis_rating()
-    if match_name == 'Badminton':
-        winning_matrix = badminton_rating()
-    if match_name == 'Star':
-        winning_matrix = scraft_rating()
-    best_uniform = best_theta_simulation(distribution_type='Uniform', theta=u_theta)
-    best_powerlaw = best_theta_simulation(distribution_type='PL', theta=PL_theta)
-    best_normal = best_theta_simulation(distribution_type='Normal', theta=normal_theta)
+    winning_matrix = match_to_matrix[match_name]
+    best_uniform = best_theta_simulation(num_players, simulate_and_1_flag, distribution_type='Uniform', theta=u_theta)
+    best_powerlaw = best_theta_simulation(num_players, simulate_and_1_flag, distribution_type='PL', theta=PL_theta)
+    best_normal = best_theta_simulation(num_players, simulate_and_1_flag, distribution_type='Normal', theta=normal_theta)
     E = E_vector_calculate(winning_matrix)
-
-
-    plot_R_and_SR(match_name,best_uniform, best_powerlaw, best_normal, E, u_theta, PL_theta, normal_theta)
+    plot_R_and_SR(match_name,best_uniform, best_powerlaw, best_normal, E, u_theta, PL_theta, normal_theta, save_figure_path)
 
 if __name__ == '__main__':
     match = 'Go'
