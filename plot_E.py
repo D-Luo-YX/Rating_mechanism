@@ -105,13 +105,13 @@ def plot_R_and_SR(match_name,best_uniform, best_powerlaw, best_normal, E, u_thet
     # plt.show()
     plt.savefig(os.path.join(save_figure_path, f'{match_name}_R_SR.png'))
 
-def plot_single_match(match_name,u_theta, PL_theta, normal_theta, match_to_matrix, save_figure_path, num_players, simulate_and_1_flag):
+def plot_single_match(match_name,u_theta, PL_theta, normal_theta, match_to_matrix, save_figure_path, num_players):
     winning_matrix = []
     winning_matrix = match_to_matrix[match_name]
-    best_uniform = best_theta_simulation(num_players, simulate_and_1_flag, distribution_type='Uniform', theta=u_theta)
-    best_powerlaw = best_theta_simulation(num_players, simulate_and_1_flag, distribution_type='PL', theta=PL_theta)
-    best_normal = best_theta_simulation(num_players, simulate_and_1_flag, distribution_type='Normal', theta=normal_theta)
-    E = E_vector_calculate(winning_matrix)
+    best_uniform = best_theta_simulation(num_players, distribution_type='Uniform', theta=u_theta)
+    best_powerlaw = best_theta_simulation(num_players, distribution_type='PL', theta=PL_theta)
+    best_normal = best_theta_simulation(num_players, distribution_type='Normal', theta=normal_theta)
+    E = E_vector_calculate(winning_matrix, num_players)
     plot_R_and_SR(match_name,best_uniform, best_powerlaw, best_normal, E, u_theta, PL_theta, normal_theta, save_figure_path)
 
 if __name__ == '__main__':

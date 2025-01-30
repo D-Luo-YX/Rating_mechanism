@@ -5,7 +5,7 @@ from Scraft_rating import scraft_rating
 from Tennis_rating import tennis_rating
 from Badminton_rating import badminton_rating
 
-def E_vector_calculate(Winning_Matrix, player_num = 32):
+def E_vector_calculate(Winning_Matrix, player_num):
     """ 这个函数 用来得出每位选手战胜不如他的对手的概率
     参数：
     - Winning_Matrix: 当前需要处理的胜场矩阵
@@ -153,7 +153,7 @@ def strength_list_ndcg(num_players, strengths_type, simulate_and_1_flag):
 
 #     return new_matrix
 
-def calculate_simulation_matrix(simulated_strength, theta, num_players=32):
+def calculate_simulation_matrix(simulated_strength, theta, num_players):
 
     temp_M = np.zeros((num_players, num_players), dtype=float)
 
@@ -199,23 +199,19 @@ def calculate_simulation_matrix(simulated_strength, theta, num_players=32):
 #             D_min = D_v
 #             min_theta = theta
 #     return D, min_theta , D_min
-def simulation(matrix, theta_values, rating_num_32, num_players, simulate_and_1_flag, distribution_type):
+def simulation(matrix, theta_values, num_players, distribution_type):
     D = []
-    matrix_n_n = matrix[:num_players, :num_players]
-    E = E_vector_calculate(matrix_n_n, num_players)
-
     D_min = 10000
     min_theta = 0
-    if rating_num_32 == True:
-        simulated_strength = strength_list(num_players, strengths_type = distribution_type, simulate_and_1_flag = simulate_and_1_flag)
-        simulated_strength = simulated_strength[:num_players]
-    else:
-        simulated_strength = strength_list(num_players = num_players + 1, strengths_type = distribution_type, simulate_and_1_flag = simulate_and_1_flag)
-        simulated_strength = simulated_strength[:num_players+1]
+
+    matrix_n_n = matrix[:num_players, :num_players]
+    E = E_vector_calculate(matrix_n_n, num_players)
+    simulated_strength = strength_list(num_players, strengths_type = distribution_type, simulate_and_1_flag = simulate_and_1_flag)
+    simulated_strength = simulated_strength[:num_players]
     for theta in theta_values:
         D_v = 0
-        simulated_winning_matrix = calculate_simulation_matrix(simulated_strength,theta)
-        E_simulated = E_vector_calculate(simulated_winning_matrix)
+        simulated_winning_matrix = calculate_simulation_matrix(simulated_strength, theta, num_players)
+        E_simulated = E_vector_calculate(simulated_winning_matrix, num_players)
         for i in range(num_players):
             # D_v += abs((E_simulated[i] - E[i]) * (1/np.log2(i+2)))
             D_v += abs(E_simulated[i] - E[i]) 
@@ -235,9 +231,9 @@ def best_theta_simulation(num_players, simulate_and_1_flag, distribution_type, t
         simulated_strength = strength_list(num_players=num_players, strengths_type=distribution_type,
                                            simulate_and_1_flag=simulate_and_1_flag)
 
-        simulated_winning_matrix = calculate_simulation_matrix(simulated_strength, theta)
+        simulated_winning_matrix = calculate_simulation_matrix(simulated_strength, theta, num_players)
         # simulated_winning_matrix = standard_matrix(rows=33, cols=33)
-        E_simulated = E_vector_calculate(simulated_winning_matrix)
+        E_simulated = E_vector_calculate(simulated_winning_matrix, num_players)
         E_simulated_list.append(E_simulated)  # 添加到列表中
 
     # 计算 E_simulated 的平均值

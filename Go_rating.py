@@ -81,10 +81,6 @@ def convert_to_33x33_ndcg(matrix, player_num=32):
             matrix[i, j] / (np.log2(j - player_num + 2) + 1)
             for j in range(player_num, matrix.shape[1])
             if matrix[i, j] > 0 or matrix[j, i] > 0
-        ]) / np.sum([
-            1 / (np.log2(j - player_num + 2) + 1)
-            for j in range(player_num, matrix.shape[1])
-            if matrix[i, j] > 0 or matrix[j, i] > 0
         ]) if np.any([
             matrix[i, j] > 0 or matrix[j, i] > 0
             for j in range(player_num, matrix.shape[1])
@@ -98,11 +94,7 @@ def convert_to_33x33_ndcg(matrix, player_num=32):
             matrix[i, j] / (np.log2(i - player_num + 2) + 1)
             for i in range(player_num, matrix.shape[0])
             if matrix[i, j] > 0 or matrix[j, i] > 0
-        ]) / np.sum([
-            1 / (np.log2(i - player_num + 2) + 1)
-            for i in range(player_num, matrix.shape[0])
-            if matrix[i, j] > 0 or matrix[j, i] > 0
-        ]) if np.any([
+        ])  if np.any([
             matrix[i, j] > 0 or matrix[j, i] > 0
             for i in range(player_num, matrix.shape[0])
         ]) else 0

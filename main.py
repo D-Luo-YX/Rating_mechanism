@@ -93,9 +93,7 @@ if __name__ == "__main__":
     save_figure_path = 'figure_jxs' # 保存结果图片的路径
 
     # 如果只保留前32个选手，则rating_num_32=True
-    rating_num_32 = True
-    num_players = 32
-    simulate_and_1_flag=false
+    rating_num_32 = False
 
     for i in range(len(match_set)):
         if not os.path.exists(os.path.join(save_path, match_set[i])):
@@ -124,12 +122,16 @@ if __name__ == "__main__":
         winning_matrix = match_to_matrix[match_name]
 
         strength = ['Normal','Uniform','PL']
+        if rating_num_32 == False:
+            num_players = 33
+        else:
+            num_players = 32
 
         all_D = []
         for strength_type in strength:
             for iteration in range(100):
                 # D, min_theta , D_min = simulation(winning_matrix,distribution_type=strength_type)#三种分布方式 'Uniform','PL','Normal' 分别代表均匀分布，幂律分布，正态分布。
-                D, _, _ = simulation(winning_matrix, theta_values, rating_num_32, num_players, simulate_and_1_flag, distribution_type=strength_type)  # 三种分布方式 'Uniform','PL','Normal' 分别代表均匀分布，幂律分布，正态分布。
+                D, _, _ = simulation(winning_matrix, theta_values, num_players, distribution_type=strength_type)  # 三种分布方式 'Uniform','PL','Normal' 分别代表均匀分布，幂律分布，正态分布。
                 all_D.append(D)
             all_D_array = np.array(all_D)
             D_mean = np.mean(all_D_array, axis=0)
@@ -141,7 +143,7 @@ if __name__ == "__main__":
     
         results.append([match_name, uniform_min, PL_min, Normal_min])
         
-        plot_single_match(match_name, uniform_min, PL_min, Normal_min, match_to_matrix, save_figure_path, num_players, simulate_and_1_flag)
+        plot_single_match(match_name, uniform_min, PL_min, Normal_min, match_to_matrix, save_figure_path, num_players)
 
     results_array = np.array(results, dtype=object)  # 使用 dtype=object 以兼容字符串列
     header = "Name Uniform_Min PL_Min Normal_Min"
