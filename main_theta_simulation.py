@@ -56,9 +56,9 @@ def save_difference_matrices(difference_matrices, save_dir="result/difference_he
 
 if __name__ == '__main__':
     # setting parameters
-    alpha = 1
+    alpha = 2
     player_num = 32
-    iteration = 100
+    iteration = 10
     # and_one_flag = True
     and_one_flag = False
 
@@ -67,7 +67,10 @@ if __name__ == '__main__':
     theta_values = np.arange(0, 2, 0.01)
 
     matches = ['StarCraft', 'Tennis', 'Go', 'Badminton']
-    distribution = ['Uniform', 'PL', 'Normal']
+    # matches = ['Tennis',]
+    # distribution = ['Uniform', 'PL', 'Normal']
+    distribution = ['Uniform', 'Normal', 'MultiGaussian']
+    # distribution = ['MultiGaussian']
 
     results = {match: {dist: {} for dist in distribution} for match in matches}
 
@@ -80,16 +83,16 @@ if __name__ == '__main__':
         temp_M = calculate_M(match, player_num, alpha, False)
 
         for distribution_type in distribution:
-            temp_mean, temp_min, temp_index = R_calculate(iteration, theta_values, temp_M, player_num, distribution_type, and_one_flag= and_one_flag, NDCG_Flag= NDCG_flag)
+            temp_mean, temp_min, temp_index = R_calculate(iteration, theta_values, temp_M, player_num, distribution_type, match= match,and_one_flag= and_one_flag, NDCG_Flag= NDCG_flag)
             results[match][distribution_type] = {
                 "mean": temp_mean,
                 "min": temp_min,
                 "index": temp_index
             }
 
-
+    # print(results)
     # 画出best theta的代码
-    plot_theta(results, theta_values)
+    plot_theta(results, theta_values, distribution)
 
 
     # 计算 R' 和 R
@@ -101,7 +104,7 @@ if __name__ == '__main__':
         for dist in distribution:
             theta_ = theta_values[results[match][dist]['index']]
             temp_M = calculate_M(match, player_num, alpha, False)
-            R_prime = best_theta_simulation(temp_M, theta_, dist, player_num, and_one_flag= and_one_flag)
+            R_prime = best_theta_simulation(temp_M, theta_, dist, player_num, match=match, and_one_flag= and_one_flag)
             R_prime_result[(match, dist)] = R_prime
 
     # 计算 R
@@ -131,7 +134,7 @@ if __name__ == '__main__':
             best_theta = theta_values[results[match][distribution_type]['index']]
 
             # 计算差异矩阵
-            D_M = best_theta_matrix_d(temp_M, best_theta, distribution_type, player_num)
+            D_M = best_theta_matrix_d(temp_M, best_theta, distribution_type, player_num, match=match)
 
             # 存储差异矩阵，方便后续调用
             difference_matrices[(match, distribution_type)] = D_M

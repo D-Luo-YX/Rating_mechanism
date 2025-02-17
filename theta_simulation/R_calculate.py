@@ -32,30 +32,60 @@ def R_vector_calculate(Winning_Matrix, player_num, calculate_number):
     return_index =min(player_num,(calculate_number-1))
     return R[:return_index]
 
-def strength_list(num_players, strengths_type):
+
+def strength_list(num_players, strengths_type, match_name,num_simulations=100):
     simulate_num = int(num_players)
-    strengths = []
-    if strengths_type == 'Uniform':
-        # 均匀分布
-        strengths = np.random.uniform(0, 1, simulate_num)
+    cumulative_strengths = np.zeros(simulate_num)  # 用于累加每次排序后的实力
 
-    #幂律分布
-    elif strengths_type == 'PL':
-        a = 1.5
-        strengths = np.random.power(a, simulate_num)
+    for sim in range(num_simulations):
+        if strengths_type == 'Uniform':
+            # 均匀分布
+            strengths = np.random.uniform(0, 1, simulate_num)
 
-    # 正态分布 重映射正态分布
-    elif strengths_type == 'Normal':
-        normal_data = np.random.randn(simulate_num)
-        strengths = 1 / (1 + np.exp(-normal_data))
+        elif strengths_type == 'PL':
+            # 幂律分布
+            a = 1.5
+            strengths = np.random.power(a, simulate_num)
 
-    strengths_df = pd.DataFrame(strengths, columns=["Strength"])
+        elif strengths_type == 'Normal':
+            # 正态分布，再通过 logistic 映射到 (0,1)
+            normal_data = np.random.randn(simulate_num)
+            strengths = 1 / (1 + np.exp(-normal_data))
+
+        elif strengths_type == 'MultiGaussian':
+            # 高斯混合模型
+            params_df = pd.read_csv(f"best_parameters/{match_name}_GMM.csv")
+            A = params_df['A'].values
+            B = params_df['B'].values
+            k = len(A)
+
+            # 计算混合权重：权重 = 1/(2*(j+1)-1)，j 从 0 到 k-1
+            weights = np.array([1 / (2 * (j + 1) - 1) for j in range(k)])
+            weights = weights / np.sum(weights)
+
+            samples = np.zeros(simulate_num)
+            for j in range(simulate_num):
+                # 根据混合权重随机选择一个分量
+                component = np.random.choice(np.arange(k), p=weights)
+                # 从选中的高斯分布中采样
+                samples[j] = np.random.normal(loc=A[component], scale=B[component])
+            # 将采样结果映射到 (0,1)
+            strengths = 1 / (1 + np.exp(-samples))
+
+        # 每次模拟后对实力进行排序，降序排列（即第1名最强）
+        strengths_sorted = np.sort(strengths)[::-1]
+        # 累加排序后的结果（注意每次排序后的索引对应的是排名，而非固定玩家身份）
+        cumulative_strengths += strengths_sorted
+
+    # Compute the average strengths over all simulation runs
+    average_strengths = cumulative_strengths / num_simulations
+
+    strengths_df = pd.DataFrame(average_strengths, columns=["Strength"])
     strengths_df['Player'] = strengths_df.index
 
     sorted_strengths_df = strengths_df.sort_values(by="Strength", ascending=False).reset_index(drop=True)
 
     sorted_strengths = sorted_strengths_df['Strength'].values
-
     return sorted_strengths
 
 def calculate_simulation_matrix(simulated_strength, theta, num_players):
@@ -75,7 +105,7 @@ def calculate_simulation_matrix(simulated_strength, theta, num_players):
     simulated_winning_matrix = temp_M
     return simulated_winning_matrix
 
-def simulation(matrix, theta_values, num_players, distribution_type, and_one_flag=True, NDCG_Flag = False):
+def simulation(matrix, theta_values, num_players, distribution_type, match, and_one_flag=True, NDCG_Flag = False):
     D = []
     D_min = 10000
     min_theta = 0
@@ -86,7 +116,7 @@ def simulation(matrix, theta_values, num_players, distribution_type, and_one_fla
     # print(calculate_length)
     R = R_vector_calculate(matrix, num_players, calculate_length)
 
-    simulated_strength = strength_list(calculate_length, strengths_type = distribution_type)
+    simulated_strength = strength_list(calculate_length, strengths_type = distribution_type, match_name = match)
     simulated_strength = simulated_strength[:calculate_length]
     for theta in theta_values:
         D_v = 0
@@ -108,15 +138,15 @@ def simulation(matrix, theta_values, num_players, distribution_type, and_one_fla
     # print(f"D length: {len(D)}")
     return D, min_theta , D_min
 
-def best_theta_simulation(matrix, theta, distribution_type, num_players, and_one_flag=True):
+def best_theta_simulation(matrix, theta, distribution_type, num_players, match, and_one_flag=True):
     if and_one_flag:
         calculate_length = len(matrix)
     else:
         calculate_length = len(matrix)-1
     R_simulated_list = []
 
-    for i in range(100):
-        simulated_strength = strength_list(num_players=calculate_length, strengths_type=distribution_type)
+    for i in range(10):
+        simulated_strength = strength_list(num_players=calculate_length, strengths_type=distribution_type, match_name=match)
 
         simulated_winning_matrix = calculate_simulation_matrix(simulated_strength, theta, calculate_length)
         R_simulated = R_vector_calculate(simulated_winning_matrix, num_players, calculate_length)
@@ -138,19 +168,19 @@ def best_theta_simulation(matrix, theta, distribution_type, num_players, and_one
     # print(D_v)
     return R_simulated_avg
 
-def best_theta_matrix_d(matrix, theta, distribution_type, num_players, and_one_flag=True):
+def best_theta_matrix_d(matrix, theta, distribution_type, num_players, match,and_one_flag=True):
     D_M = []
     simulated_winning_matrix = np.zeros_like(matrix, dtype=float)
     if and_one_flag:
         calculate_length = len(matrix)
     else:
         calculate_length = len(matrix)-1
-    for i in range(100):
-        simulated_strength = strength_list(num_players=calculate_length, strengths_type=distribution_type)
+    for i in range(5):
+        simulated_strength = strength_list(num_players=calculate_length, strengths_type=distribution_type, match_name= match)
 
         simulated_winning_matrix += calculate_simulation_matrix(simulated_strength, theta, calculate_length)
 
-    D_M = matrix - simulated_winning_matrix/100
+    D_M = matrix - simulated_winning_matrix/5
     D_M = D_M[:num_players,:num_players]
 
     return D_M
@@ -164,10 +194,10 @@ def save_d(match_name,  D_mean):
     df.to_csv(save_path.with_suffix(".txt"), index=False)
 
 
-def R_calculate(iteration, theta_value, winning_matrix, num_players, distribution_type, and_one_flag=True, NDCG_Flag = False):
+def R_calculate(iteration, theta_value, winning_matrix, num_players, distribution_type, match,and_one_flag=True, NDCG_Flag = False):
     D = []
     for i in range(iteration):
-        temp_D, _, _ = simulation(winning_matrix, theta_value, num_players, distribution_type, and_one_flag=and_one_flag, NDCG_Flag=NDCG_Flag)
+        temp_D, _, _ = simulation(winning_matrix, theta_value, num_players, distribution_type, match=match, and_one_flag=and_one_flag, NDCG_Flag=NDCG_Flag)
         D.append(temp_D)
 
     D_mean = np.mean(np.array(D), axis=0)

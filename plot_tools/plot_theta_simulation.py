@@ -85,7 +85,7 @@ def plot_difference_matrices(difference_matrices, matches, distributions):
 #     plt.tight_layout(rect=[0, 0, 0.9, 0.95])  # 留出右侧 colorbar 空间
 #     plt.show()
 
-def plot_theta(results, theta_values):
+def plot_theta(results, theta_values,distribution):
     """
     为每个比赛（match）绘制 Mean 随 Theta 变化的曲线，并标注最小值。
 
@@ -103,7 +103,7 @@ def plot_theta(results, theta_values):
     """
 
     matches = results.keys()
-    distributions = ['Uniform', 'PL', 'Normal']
+    distributions = distribution
     colors = ['b', 'g', 'r']  # 颜色列表
 
     plt.figure(figsize=(12, 8))
