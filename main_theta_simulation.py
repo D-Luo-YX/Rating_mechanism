@@ -56,7 +56,7 @@ def save_difference_matrices(difference_matrices, save_dir="result/difference_he
 
 if __name__ == '__main__':
     # setting parameters
-    alpha = 2
+    alpha = 1
     player_num = 32
     iteration = 10
     # and_one_flag = True
@@ -69,7 +69,7 @@ if __name__ == '__main__':
     matches = ['StarCraft', 'Tennis', 'Go', 'Badminton']
     # matches = ['Tennis',]
     # distribution = ['Uniform', 'PL', 'Normal']
-    distribution = ['Uniform', 'Normal', 'MultiGaussian']
+    distribution = ['Uniform', 'PL', 'Normal','MultiGaussian']
     # distribution = ['MultiGaussian']
 
     results = {match: {dist: {} for dist in distribution} for match in matches}
@@ -124,21 +124,21 @@ if __name__ == '__main__':
     plot_R_difference(R_prime_result, R_result, matches, distribution)
 
 
-    # 计算差异热度图
-    difference_matrices = {}  # 存储差异矩阵
-    for match in matches:
-        temp_M = calculate_M(match, player_num, alpha, False)  # 复用已有计算结果
-
-        for distribution_type in distribution:
-            # 获取最佳 theta（使用之前计算的结果）
-            best_theta = theta_values[results[match][distribution_type]['index']]
-
-            # 计算差异矩阵
-            D_M = best_theta_matrix_d(temp_M, best_theta, distribution_type, player_num, match=match)
-
-            # 存储差异矩阵，方便后续调用
-            difference_matrices[(match, distribution_type)] = D_M
-    # 保存差异热度矩阵
-    save_difference_matrices(difference_matrices)
-    # 画出差异热度图
-    plot_difference_matrices(difference_matrices, matches, distribution)
+    # # 计算差异热度图
+    # difference_matrices = {}  # 存储差异矩阵
+    # for match in matches:
+    #     temp_M = calculate_M(match, player_num, alpha, False)  # 复用已有计算结果
+    #
+    #     for distribution_type in distribution:
+    #         # 获取最佳 theta（使用之前计算的结果）
+    #         best_theta = theta_values[results[match][distribution_type]['index']]
+    #
+    #         # 计算差异矩阵
+    #         D_M = best_theta_matrix_d(temp_M, best_theta, distribution_type, player_num, match=match)
+    #
+    #         # 存储差异矩阵，方便后续调用
+    #         difference_matrices[(match, distribution_type)] = D_M
+    # # 保存差异热度矩阵
+    # save_difference_matrices(difference_matrices)
+    # # 画出差异热度图
+    # plot_difference_matrices(difference_matrices, matches, distribution)

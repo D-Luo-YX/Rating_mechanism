@@ -104,7 +104,7 @@ def plot_theta(results, theta_values,distribution):
 
     matches = results.keys()
     distributions = distribution
-    colors = ['b', 'g', 'r']  # 颜色列表
+    colors = ['b', 'g', 'r', 'y']  # 颜色列表
 
     plt.figure(figsize=(12, 8))
 
@@ -148,7 +148,7 @@ def plot_R_difference(R_prime_result, R_result, matches, distributions):
     - matches: list, 比赛种类
     - distributions: list, 分布种类
     """
-    colors = ['b', 'g', 'r']  # 指定颜色
+    colors = ['b', 'g', 'r', 'y']  # 指定颜色
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))  # 2x2 子图
     fig.suptitle("Comparison of R and R' Across Matches", fontsize=18)
 

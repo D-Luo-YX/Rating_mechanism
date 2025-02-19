@@ -54,7 +54,8 @@ def strength_list(num_players, strengths_type, match_name,num_simulations=100):
 
         elif strengths_type == 'MultiGaussian':
             # 高斯混合模型
-            params_df = pd.read_csv(f"best_parameters/{match_name}_GMM.csv")
+            params_df = pd.read_csv(f"best_parameters/11_matrix_33/{match_name}_GMM.csv")
+            # params_df = pd.read_csv(f"best_parameters/{match_name}_GMM.csv")
             A = params_df['A'].values
             B = params_df['B'].values
             k = len(A)
@@ -63,12 +64,14 @@ def strength_list(num_players, strengths_type, match_name,num_simulations=100):
             weights = np.array([1 / (2 * (j + 1) - 1) for j in range(k)])
             weights = weights / np.sum(weights)
 
+            B_transformed = np.log1p(np.exp(B))
+
             samples = np.zeros(simulate_num)
             for j in range(simulate_num):
                 # 根据混合权重随机选择一个分量
                 component = np.random.choice(np.arange(k), p=weights)
                 # 从选中的高斯分布中采样
-                samples[j] = np.random.normal(loc=A[component], scale=B[component])
+                samples[j] = np.random.normal(loc=A[component], scale=B_transformed[component])
             # 将采样结果映射到 (0,1)
             strengths = 1 / (1 + np.exp(-samples))
 
