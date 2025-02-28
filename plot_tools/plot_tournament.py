@@ -56,34 +56,71 @@ def plot_tournament_simulation(scores_result, result_path, correlation_type, dis
         plt.savefig(os.path.join(result_path, f'{correlation_type}_{data_type}.png'))
     plt.close()
     
+# def concat_images(image_folder):
+#     """
+#     拼接大图
+#     """
+#     image_files = [f for f in os.listdir(image_folder) if f.lower().endswith(('.jpg', '.png', '.jpeg'))]
+
+#     if len(image_files) < 1:
+#         raise ValueError("文件夹中至少包含一张图片。")
+    
+#     images = [Image.open(os.path.join(image_folder, image_file)) for image_file in image_files]
+#     width, height = images[0].size
+#     num_images = len(images)
+#     if num_images == 2:
+#         cols = 2
+#         rows = 1
+#     elif num_images == 8:
+#         cols = 4
+#         rows = 2
+#     # cols = int(math.ceil(num_images ** 0.5))  # 计算列数
+#     # rows = int(math.ceil(num_images / cols))  # 计算行数
+    
+#     new_image = Image.new('RGB', (cols * width, rows * height))
+#     for index, image in enumerate(images):
+#         row = index // cols
+#         col = index % cols
+#         new_image.paste(image, (col * width, row * height))
+#     new_image.save(os.path.join(image_folder, 'tournament.png'), dpi=(300, 300))
+
+import os
+from PIL import Image
+
 def concat_images(image_folder):
     """
-    拼接大图
+    拼接大图，按照图片文件最后一个_后的单词排序
     """
     image_files = [f for f in os.listdir(image_folder) if f.lower().endswith(('.jpg', '.png', '.jpeg'))]
 
     if len(image_files) < 1:
         raise ValueError("文件夹中至少包含一张图片。")
     
+    # 按照文件名最后一个'_'之后的部分排序
+    image_files.sort(key=lambda f: f.split('_')[-1])
+    
     images = [Image.open(os.path.join(image_folder, image_file)) for image_file in image_files]
     width, height = images[0].size
     num_images = len(images)
+    
+    # 根据图片数量计算行列数
     if num_images == 2:
         cols = 2
         rows = 1
     elif num_images == 8:
         cols = 4
         rows = 2
-    # cols = int(math.ceil(num_images ** 0.5))  # 计算列数
-    # rows = int(math.ceil(num_images / cols))  # 计算行数
+    else:
+        cols = int(math.ceil(num_images ** 0.5))  # 计算列数
+        rows = int(math.ceil(num_images / cols))  # 计算行数
     
     new_image = Image.new('RGB', (cols * width, rows * height))
     for index, image in enumerate(images):
         row = index // cols
         col = index % cols
         new_image.paste(image, (col * width, row * height))
+    
     new_image.save(os.path.join(image_folder, 'tournament.png'), dpi=(300, 300))
-
 
 if __name__ == "__main__":
     import pandas as pd

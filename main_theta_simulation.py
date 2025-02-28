@@ -18,7 +18,10 @@ from Matrix_Process.Tennis_rating import tennis_rating
 from Matrix_Process.StarCraft_rating import scraft_rating
 from Matrix_Process.Go_rating import go_rating
 
-from Tournament.tournament import tournament_correlation
+from Tournament.do_tournament import tournament_correlation
+from Tournament.coefficient import calculate_Spearman_coefficient
+from Tournament.coefficient import calculate_ndcg_Spearman_coefficient
+from Tournament.tounaments import robin_round, swiss_round, double_elimination_random, weighted_round_robin, rr_knockout, ladder_tournament
 
 from plot_tools.plot_theta_simulation import plot_theta
 from plot_tools.plot_theta_simulation import plot_difference_matrices
@@ -78,12 +81,15 @@ if __name__ == '__main__':
 
     results = {match: {dist: {} for dist in distribution} for match in matches}
 
+    # 赛制的模拟次数
+    tournament_iterations = 100
     #赛制的path
-    correlations_tounament_simulation_dirpath = "tournament_result"
+    correlations_tounament_simulation_dirpath = f"tournament_result_simulations={tournament_iterations}"
     if not os.path.exists(correlations_tounament_simulation_dirpath):
         os.makedirs(correlations_tounament_simulation_dirpath)
     real_path = os.path.join(correlations_tounament_simulation_dirpath,'real_data')
     simulation_path = os.path.join(correlations_tounament_simulation_dirpath,'simulation_data')
+
     # calculate D_mean; D_min; Theta_min_index
     # tennis_M = tennis_rating(player_num, alpha,False)
     # print(tennis_M.shape)
@@ -138,7 +144,6 @@ if __name__ == '__main__':
     ############### 模拟数据和真实数据在赛制下的结果 ###############
     ###########################################################
     correlations = pd.DataFrame()
-    tournament_iterations = 100 # 模拟次数
     for match in matches:
         real_winning_matrix = calculate_M(match, player_num, alpha, False)
         correlation_each_real = tournament_correlation(match, None, real_winning_matrix, tournament_iterations, 'Real Data')
@@ -153,7 +158,7 @@ if __name__ == '__main__':
             # 在对应赛制和分布下，相关系数的值
             correlation_each_simulation = tournament_correlation(match, distribution_type, simulated_winning_matrix, tournament_iterations, 'Simulation Data')
             correlations = pd.concat([correlations, correlation_each_simulation], axis=0)
-    correlations.to_csv(os.path.join(correlations_tounament_simulation_dirpath, "correlations_simulation.csv"), index=False)
+    correlations.to_csv(os.path.join(correlations_tounament_simulation_dirpath, "correlations_tournament.csv"), index=False)
     if not os.path.exists(real_path):
         os.makedirs(real_path)
     if not os.path.exists(simulation_path):
