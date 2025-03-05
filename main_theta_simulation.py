@@ -21,12 +21,12 @@ from Matrix_Process.Go_rating import go_rating
 from Tournament.do_tournament import tournament_correlation
 from Tournament.coefficient import calculate_Spearman_coefficient
 from Tournament.coefficient import calculate_ndcg_Spearman_coefficient
-from Tournament.tounaments import robin_round, swiss_round, double_elimination_random, weighted_round_robin, rr_knockout, ladder_tournament
+from Tournament.normalized_tounaments import robin_round, swiss_round, double_elimination_random, weighted_round_robin, rr_knockout, ladder_tournament
 
 from plot_tools.plot_theta_simulation import plot_theta
 from plot_tools.plot_theta_simulation import plot_difference_matrices
 from plot_tools.plot_theta_simulation import plot_R_difference
-from plot_tools.plot_tournament import plot_tournament_simulation, concat_images
+from plot_tools.plot_tournament import plot_tournament_simulation, concat_images, plot_tournament_curve, concat_curve_images
 
 def calculate_M(match_name, play_num, alpha, ndcg_flag):
 
@@ -73,18 +73,23 @@ if __name__ == '__main__':
     # NDCG_flag = True
     theta_values = np.arange(0, 2, 0.01)
 
-    matches = ['StarCraft', 'Tennis', 'Go', 'Badminton']
-    # matches = ['Tennis',]
+    # matches = ['StarCraft', 'Tennis', 'Go', 'Badminton']
+    matches = ['Badminton']
     # distribution = ['Uniform', 'PL', 'Normal']
-    distribution = ['Uniform', 'PL', 'Normal','MultiGaussian']
-    # distribution = ['MultiGaussian']
+    # distribution = ['Uniform', 'PL', 'Normal','MultiGaussian']
+    distribution = ['MultiGaussian']
 
     results = {match: {dist: {} for dist in distribution} for match in matches}
 
     # 赛制的模拟次数
-    tournament_iterations = 100
+    tournament_iterations = 20
+    # 以轮次数控制，测试 rounds_num 从 1 到 10
+    param_type = "rounds"
+    param_min = 1
+    param_max = 40
+    param_values = list(range(param_min, param_max+1))
     #赛制的path
-    correlations_tounament_simulation_dirpath = f"tournament_result_simulations={tournament_iterations}"
+    correlations_tounament_simulation_dirpath = f"tournament_result_simulations={tournament_iterations}_param={param_type}_parmmin={param_min}_prammax={param_max}"
     if not os.path.exists(correlations_tounament_simulation_dirpath):
         os.makedirs(correlations_tounament_simulation_dirpath)
     real_path = os.path.join(correlations_tounament_simulation_dirpath,'real_data')
@@ -93,7 +98,6 @@ if __name__ == '__main__':
     # calculate D_mean; D_min; Theta_min_index
     # tennis_M = tennis_rating(player_num, alpha,False)
     # print(tennis_M.shape)
-
     ###########################################################
     ####################### best theta ########################
     ###########################################################
@@ -144,10 +148,14 @@ if __name__ == '__main__':
     ############### 模拟数据和真实数据在赛制下的结果 ###############
     ###########################################################
     correlations = pd.DataFrame()
+    correlations_path = os.path.join(correlations_tounament_simulation_dirpath, "correlations_tournament.csv")
+
     for match in matches:
-        real_winning_matrix = calculate_M(match, player_num, alpha, False)
-        correlation_each_real = tournament_correlation(match, None, real_winning_matrix, tournament_iterations, 'Real Data')
-        correlations = pd.concat([correlations, correlation_each_real], axis=0)
+        # # 获取真实胜率模拟矩阵
+        # real_winning_matrix = calculate_M(match, player_num, alpha, False)
+        # correlation_each_real = tournament_correlation(match, None, real_winning_matrix, tournament_iterations, 'Real Data', param_type, param_values, correlations_path)
+        # correlations = pd.concat([correlations, correlation_each_real], axis=0)
+
         for distribution_type in distribution:
             # 获取最佳 theta（使用之前计算的结果）
             best_theta = theta_values[results[match][distribution_type]['index']]
@@ -156,23 +164,33 @@ if __name__ == '__main__':
             simulated_winning_matrix = get_best_theta_matrix(best_theta, distribution_type, player_num, match=match)
 
             # 在对应赛制和分布下，相关系数的值
-            correlation_each_simulation = tournament_correlation(match, distribution_type, simulated_winning_matrix, tournament_iterations, 'Simulation Data')
-            correlations = pd.concat([correlations, correlation_each_simulation], axis=0)
-    correlations.to_csv(os.path.join(correlations_tounament_simulation_dirpath, "correlations_tournament.csv"), index=False)
+            correlation_each_simulation = tournament_correlation(match, distribution_type, real_winning_matrix, tournament_iterations, 'Simulation Data', param_type, param_values, correlations_path)
     if not os.path.exists(real_path):
         os.makedirs(real_path)
     if not os.path.exists(simulation_path):
         os.makedirs(simulation_path)
 
-    for correlation_type in ['Spearman', 'NDCG_Spearman']:
+    correlations = pd.read_csv(correlations_path)
+    # 绘制曲线的代码
+    for correlation_type in ['Spearman']:
         for data_type in ['Simulation Data', 'Real Data']:
             for distribution_type in distribution:
                 if data_type == 'Real Data':
-                    plot_tournament_simulation(correlations, real_path, correlation_type, distribution_type, data_type)
+                    plot_tournament_curve(correlations, correlation_type, distribution_type, data_type, real_path)
                 else:
-                    plot_tournament_simulation(correlations, simulation_path, correlation_type, distribution_type, data_type)
-    concat_images(real_path)
-    concat_images(simulation_path)
+                    plot_tournament_curve(correlations, correlation_type, distribution_type, data_type, simulation_path)
+    concat_curve_images(real_path, 'real_data')
+    concat_curve_images(simulation_path, 'simulation_data')
+    # 绘制柱状图的代码
+    # for correlation_type in ['Spearman', 'NDCG_Spearman']:
+    #     for data_type in ['Simulation Data', 'Real Data']:
+    #         for distribution_type in distribution:
+    #             if data_type == 'Real Data':
+    #                 plot_tournament_simulation(correlations, real_path, correlation_type, distribution_type, data_type)
+    #             else:
+    #                 plot_tournament_simulation(correlations, simulation_path, correlation_type, distribution_type, data_type)
+    # concat_images(real_path)
+    # concat_images(simulation_path)
 
 
     # # 计算差异热度图

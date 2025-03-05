@@ -1,75 +1,110 @@
-import numpy as np
-import pandas as pd
+"""
+Tournament Module
+-----------------
+本模块提供以下比赛赛制的对阵生成及结果处理函数：
+  1. 循环赛（Round Robin）
+  2. 瑞士轮（Swiss System）
+  3. 双淘汰赛（Double Elimination）
+  4. 加权循环赛（Weighted Round Robin）
+  5. 分组赛+淘汰赛（Group Stage + Knockout Stage）
+  6. 阶梯赛（Ladder Tournament）
+
+各函数的参数要求说明：
+  - win_matrix: 胜负判断矩阵（如 NumPy 数组或 DataFrame），用于判断比赛结果。
+  - player_information: 包含选手信息的 DataFrame，必须包含 'Player' 列，其它列（如 'Score'、'Defeated_Opponents'、'Lose_Time'）根据赛制要求。
+  - rounds_num / matches_num: 控制比赛的轮次数或总场次数。要求其中一个设置为 None，表示采用另一种控制方式（finish_all_rounds 为 False 时）。
+  - finish_all_rounds: 布尔值，若为 True，则忽略 rounds_num 与 matches_num，采用预设规则（例如循环赛完成所有轮次，或阶梯赛仅进行一轮）。
+
+外部依赖函数包括：
+  - win_judge_return_winner: 根据 win_matrix 判断比赛胜者，返回胜者编号。
+  - win_judge_with_weight: 考虑权重的胜负判断函数，用于加权循环赛。
+  - win_judge_with_lose_time: 用于双淘汰赛，更新选手输的次数等信息。
+  - generate_random_match_pairs: 随机生成淘汰赛对阵表（已调整为不修改原选手列表）。
+  - one_round_match: 执行一轮比赛，更新选手信息（循环赛、瑞士轮使用）。
+  - rank_players: 对选手进行排名排序。
+"""
+
+import math
 import random
 import numpy as np
-import math
-from .win_judge import win_judge_return_winner, win_judge_with_weight, generate_random_match_pairs, one_round_match, rank_players, win_judge_with_lose_time
-# from win_judge import win_judge_return_winner, win_judge_with_weight, generate_random_match_pairs, one_round_match, rank_players, win_judge_with_lose_time
+import pandas as pd
 
-###########################################################
-# 检查参数：必须设置 round_num 或 matches_num 其中之一为None（finish_all_rounds 为 False 时）
-###########################################################
-"""
-循环赛比赛
-"""
+from .win_judge import (
+    win_judge_return_winner, 
+    win_judge_with_weight, 
+    generate_random_match_pairs, 
+    one_round_match, 
+    rank_players, 
+    win_judge_with_lose_time
+)
+
+########################################################################
+# 循环赛（Round Robin）相关函数
+########################################################################
+
 def generate_match_pairs(num_rows):
     """
-    生成基于轮转思想的对阵表，支持偶数和奇数数量的玩家。每个选手都会和其他选手对阵一次，适用于循环赛比赛。我稍微改了一下
-    如果 num_rows 为奇数，则添加一个虚拟的轮空玩家 'N/A'。
-
+    生成基于轮转思想的对阵表，适用于循环赛。
+    
+    说明：
+      - 每个选手与其他选手对阵一次。
+      - 若总玩家数为奇数，则添加一个虚拟玩家 'N/A' 以保证轮转正常。
+    
     参数：
-    - num_rows: 总玩家数量
-
+      - num_rows: 整数，总玩家数量（不含虚拟玩家）。
+    
     返回：
-    - match_schedule: 一个包含 num_rows 组轮转对阵表的列表
+      - match_schedule: 包含 (num_rows - 1) 轮对阵表的列表，每一轮为一组对阵，
+                        对阵以元组 (选手1, 选手2) 表示。
     """
     is_odd = num_rows % 2 != 0
     if is_odd:
-        num_rows += 1  # 添加一个虚拟玩家，使得总人数变为偶数
+        num_rows += 1  # 增加虚拟玩家
 
-    # 初始化轮盘，编号从 1 到 num_rows，如果是奇数，则最后一个为 'N/A'
+    # 初始化选手列表：若原始为奇数，则最后一个为 'N/A'
     players = list(range(1, num_rows+1)) if not is_odd else list(range(1, num_rows)) + ['N/A']
-
-    random.shuffle(players)  # 随机打乱顺序，保证不泄露选手实力信息
-
-    # 保存所有轮次的对阵表
+    random.shuffle(players)
     match_schedule = []
-    # 进行 num_rows - 1 轮轮转，每轮生成一组对阵
+
     for _ in range(num_rows - 1):
         pairs = []
-        for i in range(len(players) // 2):  # 使用 len(players) 代替 num_rows
+        for i in range(len(players) // 2):
             pairs.append((players[i], players[len(players) - 1 - i]))
         match_schedule.append(pairs)
-        # 轮转操作：保持第一个元素不变，其余元素轮转
+        # 轮转：保持第一个选手不变，其余选手轮转
         players = [players[0]] + players[1:][1:] + [players[1]]
-
     return match_schedule
 
 def robin_round(win_matrix, player_information, rounds_num, matches_num, finish_all_rounds):
     """
-    循环赛比赛，每个选手都会和其他选手对阵一次
-
-    - round_num: 比赛轮数
-    - finish_all_rounds: 是否完成所有轮次
+    循环赛比赛：每个选手与其他选手对阵一次。
+    
+    参数：
+      - win_matrix: 胜负判断矩阵，用于确定每场比赛胜者。
+      - player_information: DataFrame，包含选手信息，必须含 'Player' 列。
+      - rounds_num: 整数，指定循环赛阶段的比赛轮数；若采用场次数控制，则设置为 None。
+      - matches_num: 整数，指定循环赛阶段的总比赛场次数；若采用轮次数控制，则设置为 None。
+      - finish_all_rounds: 布尔值，若为 True，则执行所有轮次，不受 rounds_num 或 matches_num 限制。
+    
+    返回：
+      - 原始 player_information 与经过循环赛后的排序信息 DataFrame（由 rank_players 得到）。
     """
     rr_information = player_information.copy()
     num_rows = rr_information.shape[0]
-
     match_schedule = generate_match_pairs(num_rows)
     matches_count = 0
-    # 完成所有轮次
+
     if finish_all_rounds:
-        match_schedule = match_schedule
-    # 如果场次数为None，则根据轮次数裁剪对阵表
+        # 保留所有生成的轮次
+        pass
     elif matches_num is None:
         if rounds_num > num_rows:
-            # print("轮次数超过最多可能轮次数，自动调整为最多可能轮次数。")
+            # print("轮次数超过最多可能轮次数，自动调整。")
             rounds_num = num_rows
         match_schedule = match_schedule[:rounds_num]
-    # 如果轮次数为None，根据场次数量裁剪对阵表
     elif rounds_num is None:
-        # if matches_num < math.ceil(num_rows/2):
-            # print("比赛场次数小于选手数量，无法完成一轮。")
+        # if matches_num < math.ceil(num_rows / 2):
+        #     print("比赛场次数小于选手数量，无法完成一轮。")
         truncated_schedule = []
         for round_pairs in match_schedule:
             round_truncated = []
@@ -81,19 +116,28 @@ def robin_round(win_matrix, player_information, rounds_num, matches_num, finish_
                 truncated_schedule.append(round_truncated)
         match_schedule = truncated_schedule
 
-    for i in range(len(match_schedule)):
-        rr_information = one_round_match(win_matrix, rr_information, match_schedule[i])
-
+    for round_pairs in match_schedule:
+        rr_information = one_round_match(win_matrix, rr_information, round_pairs)
     ranked_rr_information = rank_players(rr_information)
-
     return player_information, ranked_rr_information
 
+########################################################################
+# 瑞士轮（Swiss System）相关函数
+########################################################################
 
-"""
-瑞士轮比赛
-"""
 def sr_first_round_match_list(player_information, total_matches_played, matches_num):
-    # 在瑞士轮中，第一轮乱序排列
+    """
+    瑞士轮第一轮比赛对阵生成：随机乱序配对。
+    
+    参数：
+      - player_information: DataFrame，包含 'Player' 列。
+      - total_matches_played: 整数，当前已进行比赛场次（可为 None）。
+      - matches_num: 整数，总比赛场次限制（可为 None）。
+    
+    返回：
+      - match_list: 第一轮对阵列表，每个对阵以 (p1, p2) 表示，p2 为 None 表示轮空。
+      - total_matches_played: 更新后的比赛场次数。
+    """
     match_list = []
     players = player_information["Player"].tolist()
     np.random.shuffle(players)
@@ -103,63 +147,66 @@ def sr_first_round_match_list(player_information, total_matches_played, matches_
         match_list.append((p1, p2))
         if total_matches_played is not None:
             total_matches_played += 1
-        # 如果已经达到指定的比赛场次，停止比赛
         if matches_num is not None and total_matches_played == matches_num:
             break
     return match_list, total_matches_played
 
 def sr_one_round_match_list(player_information, total_matches_played, matches_num):
+    """
+    瑞士轮后续轮次比赛对阵生成：按得分降序排列后匹配未交手选手。
+    
+    参数同上。
+    
+    返回：
+      - match_list: 当前轮次的对阵列表。
+      - total_matches_played: 更新后的比赛场次数。
+    """
     match_list = []
-
-    # 按得分和实力降序排列
-    player_information = player_information.sort_values(by=["Score"], ascending=[False])
+    player_information = player_information.sort_values(by=["Score"], ascending=False)
     players = player_information["Player"].tolist()
-    scores = player_information["Score"].tolist()
     defeated_opponents = player_information["Defeated_Opponents"].tolist()
-    used_players = set() # 记录已匹配过的选手
-
+    used_players = set()
     while players:
-        p1 = players.pop(0)  # 选出当前最高分的选手
+        p1 = players.pop(0)
         if p1 in used_players:
-            continue  # 如果该选手已匹配过，则跳过
-
-        # 尝试为 p1 找到一个合适的对手 p2
+            continue
         for i, p2 in enumerate(players):
-            if p2 not in defeated_opponents[p1 - 1]:  # 检查 p1 和 p2 是否对战过
-                match_list.append((p1, p2))  # 匹配成功
+            if p2 not in defeated_opponents[p1 - 1]:
+                match_list.append((p1, p2))
                 used_players.add(p1)
                 used_players.add(p2)
-                players.pop(i)  # 将 p2 移出待匹配列表
+                players.pop(i)
                 break
         if total_matches_played is not None:
             total_matches_played += 1
-        # 如果已经达到指定的比赛场次，停止比赛
         if matches_num is not None and total_matches_played == matches_num:
             break
         if len(players) == 1:
             p1 = players[0]
-            match_list.append((p1, None))  # None 表示轮空
-        
+            match_list.append((p1, None))
     return match_list, total_matches_played
 
 def swiss_round(win_matrix, player_information, round_num, matches_num, finish_all_rounds):
     """
-    瑞士轮比赛，每个选手都会和其他选手对阵一次
-
-    - round_num: 比赛轮数（可选）
-    - matches_num: 比赛总场次（可选）
-    - finish_all_rounds: 是否完成所有轮次
+    瑞士轮比赛：支持按轮次数或总场次数控制。
+    
+    参数：
+      - win_matrix, player_information 同上。
+      - round_num: 指定比赛轮数；若采用场次数控制，则为 None。
+      - matches_num: 指定比赛场次数；若采用轮次数控制，则为 None。
+      - finish_all_rounds: 若为 True，则按选手数量计算轮数（ceil(log2(num_rows)））。
+    
+    返回：
+      - 原始 player_information 与瑞士轮比赛后的排名结果 DataFrame。
     """
     sr_information = player_information.copy()
     num_rows = sr_information.shape[0]
-    total_matches_played = 0  # 统计已进行的比赛场次
-    
-    # 完成所有轮次，则轮次数为 num_rows 的对数
+    total_matches_played = 0
+
     if finish_all_rounds:
         round_num = math.ceil(math.log2(num_rows))
         matches_num = None
-    
-    # 如果场次数为None，则根据轮次数计算对阵结果
+
     if matches_num is None:
         for i in range(round_num):
             if i == 0:
@@ -169,8 +216,6 @@ def swiss_round(win_matrix, player_information, round_num, matches_num, finish_a
             sr_information = one_round_match(win_matrix, sr_information, one_round_list)
         ranked_sr_information = rank_players(sr_information)
         return player_information, ranked_sr_information
-    
-    # 如果轮次数为None，则根据场次数量计算对阵结果
     elif round_num is None:
         for i in range(1000):
             if i == 0:
@@ -183,11 +228,26 @@ def swiss_round(win_matrix, player_information, round_num, matches_num, finish_a
         ranked_sr_information = rank_players(sr_information)
         return player_information, ranked_sr_information
 
-"""
-双淘汰赛比赛
-"""
+########################################################################
+# 双淘汰赛（Double Elimination）相关函数
+########################################################################
+
 def generate_double_elimination_pairs(player_information, is_first_time, total_matches_num, matches_num):
-    # 如果是第一轮，随机打乱选手顺序
+    """
+    生成双淘汰赛对阵表：
+      - 第一轮随机配对；
+      - 后续轮次根据选手输的次数进行配对，若选手数为奇数，安排轮空。
+    
+    参数：
+      - player_information: DataFrame，包含 'Player' 及 'Lose_Time' 列。
+      - is_first_time: 布尔值，表示是否为第一轮。
+      - total_matches_num: 当前累计比赛场数。
+      - matches_num: 总比赛场数限制（可为 None）。
+    
+    返回：
+      - match_schedule: 对阵列表，每场以 (p1, p2) 表示。
+      - total_matches_num: 更新后的比赛场次数。
+    """
     if is_first_time:
         players = player_information["Player"].tolist()
         random.shuffle(players)
@@ -199,23 +259,19 @@ def generate_double_elimination_pairs(player_information, is_first_time, total_m
             total_matches_num += 1 
             if matches_num is not None and total_matches_num == matches_num:
                 break
-        # 轮空选手
         if len(players) == 1:
             match_schedule.append((players.pop(), 'N/A'))
         return match_schedule, total_matches_num
-    
-    # 如果不是第一轮，根据选手输的次数进行配对
     else:
-        # 如果是最后一轮，则将两个选手配对
-        if len(player_information[player_information['Lose_Time'] == 1]["Player"].tolist()) == 1 and len(player_information[player_information['Lose_Time'] == 0]["Player"].tolist()) == 1:
+        if len(player_information[player_information['Lose_Time'] == 1]["Player"].tolist()) == 1 and \
+           len(player_information[player_information['Lose_Time'] == 0]["Player"].tolist()) == 1:
             match_schedule = []
             p1 = player_information[player_information['Lose_Time'] == 0]["Player"].tolist()[0]
             p2 = player_information[player_information['Lose_Time'] == 1]["Player"].tolist()[0]
             match_schedule.append((p1, p2))
             total_matches_num += 1 
             return match_schedule, total_matches_num
-        
-        # Lose_Time为0的选手之间两两配对，Lose_Time为1的选手之间两两配对，Lose_Time为2的选手淘汰。如果选手数为奇数，轮空选手和'N/A'配对。
+
         match_schedule = []
         players_no_lose = player_information[player_information['Lose_Time'] == 0]["Player"].tolist()
         while len(players_no_lose) > 1:
@@ -225,7 +281,6 @@ def generate_double_elimination_pairs(player_information, is_first_time, total_m
             total_matches_num += 1 
             if matches_num is not None and total_matches_num == matches_num:
                 break
-        # 轮空选手
         if len(players_no_lose) == 1:
             match_schedule.append((players_no_lose.pop(), 'N/A'))
         
@@ -237,40 +292,46 @@ def generate_double_elimination_pairs(player_information, is_first_time, total_m
             p2 = players_one_lose.pop(0)
             match_schedule.append((p1, p2))
             total_matches_num += 1 
-        # 轮空选手
         if len(players_one_lose) == 1:
             match_schedule.append((players_one_lose.pop(), 'N/A'))
         return match_schedule, total_matches_num
-    
-def double_elimination_random(win_matrix, player_information, round_num, matches_num, finish_all_rounds):
-    de_information = player_information.copy()
 
-    # 初始化选手列表
-    de_information["Lose_Time"] = 0 # 加上一列，记录该选手输的次数
+def double_elimination_random(win_matrix, player_information, round_num, matches_num, finish_all_rounds):
+    """
+    双淘汰赛：选手需输两场比赛才被淘汰。
+    
+    参数：
+      - win_matrix, player_information 同上，其中 player_information 需含 'Lose_Time' 列（初始均为 0）。
+      - round_num: 控制比赛轮数；若采用场次数控制，则设置为 None。
+      - matches_num: 控制比赛总场数；若采用轮次数控制，则设置为 None。
+      - finish_all_rounds: 若为 True，则不考虑 rounds_num 与 matches_num。
+    
+    返回：
+      - de_information: 双淘汰赛结束后的选手信息 DataFrame。
+      - ranked_de_information: 排名后的结果 DataFrame。
+    """
+    de_information = player_information.copy()
+    de_information["Lose_Time"] = 0
     total_matches_num = 0
 
-    # 如果是要考虑完成所有轮次
     if finish_all_rounds:
         matches_num = 1000
         round_num = None
 
-    # 如果是考虑比赛场数而不是轮次数
     if round_num is None:
         round_num = 1000
 
     for i in range(round_num):
         if len(de_information[de_information['Lose_Time'] == 2]["Player"].tolist()) == len(de_information)-1:
-            # print("比赛已经达到最多轮次，结束比赛。")
+            print("比赛已达最大轮次，结束。")
             break
         if i == 0:
-            # 如果考虑比赛场次数，并且目前的场次数已经达到了指定的场次数，则结束比赛
             if matches_num is not None and total_matches_num == matches_num:
                 break
             one_round_list, total_matches_num = generate_double_elimination_pairs(de_information, True, total_matches_num, matches_num)
             for p1, p2 in one_round_list:
                 de_information = win_judge_with_lose_time(win_matrix, p1, p2, de_information)
         else:
-            # 如果考虑比赛场次数，并且目前的场次数已经达到了指定的场次数，则结束比赛
             if matches_num is not None and total_matches_num == matches_num:
                 break
             one_round_list, total_matches_num = generate_double_elimination_pairs(de_information, False, total_matches_num, matches_num)
@@ -279,47 +340,38 @@ def double_elimination_random(win_matrix, player_information, round_num, matches
     ranked_de_information = rank_players(de_information)
     return de_information, ranked_de_information
 
-"""
-加权循环赛
-选手之间的每场比赛可能具有不同的权重。例如，前几名的选手之间的比赛可能比后几名选手之间的比赛更重要。权重通常会影响选手的得分或者比赛结果。
-"""
-import random
-import math
-import numpy as np
+########################################################################
+# 加权循环赛（Weighted Round Robin）相关函数 
+# 这里我做了修改，之前的赛制提前使用了选手信息，不合理，现在改为根据每一轮的结果动态调整权重
+########################################################################
 
 def generate_weighted_match_pairs(num_rows, player_information, round_num):
     """
-    生成基于轮转思想的加权对阵表，支持偶数和奇数数量的玩家。每个选手都会和其他选手对阵一次，适用于循环赛比赛。
-    比赛的权重根据选手的当前分数来动态调整。
-    如果 num_rows 为奇数，则添加一个虚拟玩家 'N/A'。
-
+    生成加权对阵表：
+      - 基于轮转思想生成对阵表，若总玩家数为奇数，则添加虚拟玩家 'N/A'。
+      - 每场比赛权重依据两个选手当前分数计算（或取平均值）。
+    
     参数：
-    - num_rows: 总玩家数量
-    - player_information: 包含选手信息的数据框
-    - round_num: 当前轮次（用于调整权重）
-
+      - num_rows: 整数，总玩家数量（不含虚拟玩家）。
+      - player_information: DataFrame，需含 'Player' 及 'Score' 列。
+      - round_num: 当前轮次（用于权重调整，具体可根据实际需求调整）。
+    
     返回：
-    - match_schedule: 一个包含 num_rows 组轮转对阵表的列表，带有权重
+      - match_schedule: 每轮对阵表的列表，每个元素为 (player1, player2, weight) 三元组的列表。
     """
     is_odd = num_rows % 2 != 0
     if is_odd:
-        num_rows += 1  # 添加一个虚拟玩家，使得总人数变为偶数
+        num_rows += 1
 
-    # 初始化轮盘，编号从 1 到 num_rows，如果是奇数，则最后一个为 'N/A'
     players = list(range(1, num_rows+1)) if not is_odd else list(range(1, num_rows)) + ['N/A']
-
-    random.shuffle(players)  # 随机打乱顺序，保证不泄露选手实力信息
-
-    # 保存所有轮次的对阵表
+    random.shuffle(players)
     match_schedule = []
-    # 进行 num_rows - 1 轮轮转，每轮生成一组对阵
-    for round_num_index in range(num_rows - 1):
+
+    for _ in range(num_rows - 1):
         pairs = []
         pairs_weighted = []
-        for i in range(len(players) // 2):  # 使用 len(players) 代替 num_rows
+        for i in range(len(players) // 2):
             pairs.append((players[i], players[len(players) - 1 - i]))
-        
-        # 为每场比赛分配权重，权重为两个选手当前分数之和的一半
         for player1, player2 in pairs:
             if player1 == 'N/A':
                 weights = player_information.loc[player_information['Player'] == player2, 'Score'].values[0]
@@ -327,41 +379,35 @@ def generate_weighted_match_pairs(num_rows, player_information, round_num):
                 weights = player_information.loc[player_information['Player'] == player1, 'Score'].values[0]
             else:
                 weights = (player_information.loc[player_information['Player'] == player1, 'Score'].values[0] +
-                            player_information.loc[player_information['Player'] == player2, 'Score'].values[0]) / 2
+                           player_information.loc[player_information['Player'] == player2, 'Score'].values[0]) / 2
             pairs_weighted.append((player1, player2, weights))
         match_schedule.append(pairs_weighted)
-        
-        # 轮转操作：保持第一个元素不变，其余元素轮转
         players = [players[0]] + players[1:][1:] + [players[1]]
-
     return match_schedule
 
 def weighted_round_robin(win_matrix, player_information, rounds_num, matches_num, finish_all_rounds):
     """
-    加权循环赛，每个选手都会和其他选手对阵一次
-
-    - round_num: 比赛轮数
-    - finish_all_rounds: 是否完成所有轮次
+    加权循环赛：每个选手均与其他选手对阵，比赛权重根据当前分数动态调整。
+    
+    参数同循环赛，但使用 generate_weighted_match_pairs 生成含权重的对阵表。
+    
+    返回：
+      - 原始 player_information 与加权循环赛后的排序结果 DataFrame。
     """
     weighted_information = player_information.copy()
     num_rows = weighted_information.shape[0]
-
-    # 生成加权对阵表
     match_schedule = generate_weighted_match_pairs(num_rows, weighted_information, round_num=1)
 
-    # 完成所有轮次
     if finish_all_rounds:
-        match_schedule = match_schedule
-    # 如果场次数为None，则根据轮次数裁剪对阵表
+        pass
     elif matches_num is None:
         if rounds_num > num_rows:
-            # print("轮次数超过最多可能轮次数，自动调整为最多可能轮次数。")
+            # print("轮次数超过最大值，自动调整。")
             rounds_num = num_rows
         match_schedule = match_schedule[:rounds_num]
-    # 如果轮次数为None，根据场次数量裁剪对阵表
     elif rounds_num is None:
         # if matches_num < math.ceil(num_rows / 2):
-            # print("比赛场次数小于选手数量，无法完成一轮。")
+        #     print("比赛场次数不足以完成一轮。")
         matches_count = 0
         truncated_schedule = []
         for round_pairs in match_schedule:
@@ -374,87 +420,84 @@ def weighted_round_robin(win_matrix, player_information, rounds_num, matches_num
                 truncated_schedule.append(round_truncated)
         match_schedule = truncated_schedule
 
-    # 进行比赛，每轮比赛后更新权重
-    for round_num_index, round_pairs in enumerate(match_schedule):
-        # 进行本轮比赛
+    for round_idx, round_pairs in enumerate(match_schedule):
         for p1, p2, weight in round_pairs:
             weighted_information = win_judge_with_weight(win_matrix, p1, p2, weight, weighted_information)
-
-        # 比赛后更新权重：基于当前的分数重新计算比赛权重
-        # 处理当一方是 N/A 时的特殊情况：
-        # 1.如果另一方的得分为 0，那么 权重设定为 1。
-        # 2.如果另一方的得分不为 0，那么 权重设定为另一方的得分。
-        if round_num_index + 1 < len(match_schedule):
-            temp = match_schedule[round_num_index + 1]
-            match_schedule[round_num_index + 1] = []
+        if round_idx + 1 < len(match_schedule):
+            temp = match_schedule[round_idx + 1]
+            match_schedule[round_idx + 1] = []
             for p1, p2, _ in temp:
-                # 获取 p1 和 p2 的分数
                 if p1 != 'N/A':
                     p1_score = weighted_information.loc[weighted_information['Player'] == p1, 'Score'].values[0]
                 if p2 != 'N/A':
                     p2_score = weighted_information.loc[weighted_information['Player'] == p2, 'Score'].values[0]
-                
-                # 处理 'N/A' 选手的特殊情况
                 if p1 == 'N/A':
-                    if p2_score == 0:
-                        weight = np.float64(0.5)  # 另一方得分为 0，权重为 1
-                    else:
-                        weight = p2_score / 2   # 另一方得分不为 0，权重为对方得分
+                    weight = np.float64(0.5) if p2_score == 0 else p2_score / 2
                 elif p2 == 'N/A':
-                    if p1_score == 0:
-                        weight = np.float64(0.5)  # 另一方得分为 0，权重为 1
-                    else:
-                        weight = p1_score / 2   # 另一方得分不为 0，权重为对方得分
+                    weight = np.float64(0.5) if p1_score == 0 else p1_score / 2
                 else:
-                    weight = (p1_score + p2_score) / 2  # 正常情况下计算平均权重
-
-                # 将更新后的对阵和权重添加到对阵表
-                match_schedule[round_num_index + 1].append((p1, p2, weight))
-
+                    weight = (p1_score + p2_score) / 2
+                match_schedule[round_idx + 1].append((p1, p2, weight))
     ranked_weighted_information = rank_players(weighted_information)
-
     return player_information, ranked_weighted_information
-"""
-分组赛+淘汰赛
-将选手分为若干组进行小组赛，按小组排名前几名进入淘汰赛。类似世界杯或欧冠。
-"""
-# 生成分组
+
+########################################################################
+# 分组赛 + 淘汰赛相关函数
+########################################################################
+
 def generate_groups(num_players, num_groups):
+    """
+    将总选手随机分为 num_groups 组。
+    
+    参数：
+      - num_players: 整数，总选手数量。
+      - num_groups: 整数，分组数。
+    
+    返回：
+      - groups: 列表，每个元素为一个分组（选手编号列表）。
+    """
     players = list(range(1, num_players + 1))
     random.shuffle(players)
     groups = [players[i::num_groups] for i in range(num_groups)]
     return groups
 
-# 淘汰赛阶段
 def knockout_stage(group_results, win_matrix, rr_player_information, knockout_stage_rounds_num, knockout_stage_matches_num):
     """
-    淘汰赛阶段，根据小组赛结果进行单败淘汰赛。
-    - matches_num: 控制淘汰赛的比赛场次
+    淘汰赛阶段：根据各小组循环赛结果进入单败淘汰赛。
+    
+    说明：
+      - 从每个小组中选取前两名进入淘汰赛。
+      - 使用 generate_random_match_pairs 生成对阵表（该函数已调整为不修改原列表）。
+      - 每场比赛由 win_judge_return_winner 判断胜者，输家从淘汰选手列表中移除。
+    
+    参数：
+      - group_results: 列表，每个元素为一组小组赛的结果 DataFrame。
+      - win_matrix: 胜负判断矩阵。
+      - rr_player_information: 循环赛阶段合并后的选手信息 DataFrame。
+      - knockout_stage_rounds_num: 淘汰赛允许的轮次数；若采用场次数控制，则为 None。
+      - knockout_stage_matches_num: 淘汰赛允许的总比赛场次数；若采用轮次数控制，则为 None。
+    
+    返回：
+      - rr_player_information: 淘汰赛结束后更新的选手信息 DataFrame。
     """
     knockout_players = []
-    #记录目前的轮次数量
     rounds_count = 0
-    matches_count = 0
+    match_count = 0
 
-    # 从每个小组中选出前2名进入淘汰赛
+    # 取各组前两名
     for group in group_results:
-        knockout_players.append(group.iloc[0])  # 前1名
-        knockout_players.append(group.iloc[1])  # 前2名
-
+        knockout_players.append(group.iloc[0])
+        knockout_players.append(group.iloc[1])
     knockout_information = pd.DataFrame(knockout_players)
-    
-    # 开始单败淘汰赛
     players = knockout_information['Player'].tolist()
     players_copy = players.copy()
-    match_count = 0
+
     while len(players_copy) > 1:
-        # 生成比赛对阵表
         match_schedule = generate_random_match_pairs(players_copy)
         for p1, p2 in match_schedule:
             loser = win_judge_return_winner(win_matrix, p1, p2, rr_player_information)
-            players_copy.remove(loser)
-
-        # 结束条件
+            if loser in players_copy:
+                players_copy.remove(loser)
         rounds_count += 1
         if knockout_stage_rounds_num is not None and rounds_count == knockout_stage_rounds_num:
             break
@@ -465,105 +508,100 @@ def knockout_stage(group_results, win_matrix, rr_player_information, knockout_st
 
 def map_defeated_opponents(defeated_list, new_to_old):
     """
-    将 defeated_list 中的每个元素根据 new_to_old 映射回原始编号
+    将 defeated_list 中的每个元素根据 new_to_old 映射回原始编号。
+    
+    参数：
+      - defeated_list: 列表，存储已击败对手的编号。
+      - new_to_old: 字典，映射新编号到原始编号。
+    
+    返回：
+      - 映射后的列表。
     """
-    # 如果 defeated_list 为空，直接返回空列表
     if not defeated_list:
         return []
     return [new_to_old.get(x, x) for x in defeated_list]
 
-import math
-
 def total_rr_matches(win_matrix, group_num):
     """
-    计算将总人数分为 group_num 组后，每个组进行 round robin 比赛的比赛场数之和
+    计算将总人数分为 group_num 组后，各组内部循环赛的总比赛场数之和。
+    
+    说明：
+      - 对于 n 人组，其内部比赛场数为 n*(n-1)/2。
+      - 当不能均分时，部分组人数为 base+1，其余为 base。
+    
+    参数：
+      - win_matrix: 用于获取总人数（行数）。
+      - group_num: 分组数。
+    
+    返回：
+      - total_matches: 整数，总比赛场数之和。
     """
     total_players = win_matrix.shape[0]
-    # 每组基本人数
     base = total_players // group_num
-    # 余数，即有多少组需要额外增加一名选手
     remainder = total_players % group_num
-
     total_matches = 0
-    # 对于有额外选手的组（人数为 base + 1）
     for _ in range(remainder):
         group_size = base + 1
         total_matches += group_size * (group_size - 1) // 2
-
-    # 对于其他组（人数为 base）
     for _ in range(group_num - remainder):
         group_size = base
         total_matches += group_size * (group_size - 1) // 2
-
     return total_matches
 
-# 加权循环赛和淘汰赛结合 
 def rr_knockout(win_matrix, player_information, rounds_num, matches_num, finish_all_rounds):
     """
-    这里的轮次数量分为两部分：循环赛的轮次数量和淘汰赛的比赛场次数量。其中，循环赛的轮次数量为一个小组的轮次数量，因为每个小组的人数是相同的，我们认为一轮比赛包括所有的小组的该轮。
+    分组赛 + 淘汰赛：
+      - 循环赛阶段：各分组内部进行循环赛，各组比赛轮次相同，每轮结果保留组号。
+      - 淘汰赛阶段：根据各组排名进入单败淘汰赛。
+    
+    参数：
+      - win_matrix, player_information 同前。
+      - rounds_num: 循环赛阶段比赛轮数；若采用场次数控制，则为 None。
+      - matches_num: 循环赛阶段比赛场次数；若采用轮次数控制，则为 None。
+      - finish_all_rounds: 若为 True，则忽略 rounds_num 与 matches_num。
+    
+    返回：
+      - 原始 player_information 与综合（循环赛 + 淘汰赛）后的最终排名结果 DataFrame。
     """
     group_results = []
-    rr_player_information_list = []  # 用于保存每个小组的循环赛结果
+    rr_player_information_list = []
     is_knockout = True
     rrknockout_information = player_information.copy()
-    # 分组数量
     group_num = 4
-    groups = generate_groups(len(rrknockout_information), group_num)  # 假设将玩家分为4组
+    groups = generate_groups(len(rrknockout_information), group_num)
 
-    # 在rr中最多可能的比赛轮次数和比赛场次数
-    # 最多的轮次为计算均衡分组后最多人数的组数量-1
     max_rounds_num_in_rr = math.ceil(win_matrix.shape[0] / group_num) - 1
     max_matches_num_in_rr = total_rr_matches(win_matrix, group_num)
     if rounds_num is not None and rounds_num < max_rounds_num_in_rr:
         # print("轮次数小于循环赛阶段最多可能轮次数。")
         is_knockout = False
-
     if matches_num is not None and matches_num < max_matches_num_in_rr:
         # print("场次数小于循环赛阶段最多可能场次数。")
         is_knockout = False
-
     if finish_all_rounds:
         rounds_num = None
         matches_num = None
 
     for group_id, group in enumerate(groups, start=1):
-        # 提取本组选手数据
         group_info = rrknockout_information[rrknockout_information['Player'].isin(group)].copy()
         group_info = group_info.sort_values(by='Player', ascending=True).reset_index(drop=True)
         group = sorted(group)
-
-        # 该小组对应的子胜率矩阵
-        group_indices = [x - 1 for x in group]
-        group_indices.sort()
+        group_indices = sorted([x - 1 for x in group])
         sub_win_matrix = win_matrix[np.ix_(group_indices, group_indices)]
-
-        # 创建映射，新的连续编号 <--> 原始编号
         new_to_old = {new_id: orig for new_id, orig in enumerate(group, start=1)}
         old_to_new = {v: k for k, v in new_to_old.items()}
-        
-        # 将本组DataFrame的Player列转换为新编号
         group_info['Player'] = group_info['Player'].map(old_to_new)
-        
-        # 调用robin_round进行循环赛
         _, ranked_rr_group_information = robin_round(sub_win_matrix, group_info, rounds_num, matches_num, finish_all_rounds)
-        
-        # 将重新编号的Player列映射回原始编号
         ranked_rr_group_information['Player'] = ranked_rr_group_information['Player'].map(new_to_old)
         if 'Defeated_Opponents' in ranked_rr_group_information.columns:
             ranked_rr_group_information['Defeated_Opponents'] = ranked_rr_group_information['Defeated_Opponents'].apply(
                 lambda lst: map_defeated_opponents(lst, new_to_old)
             )
-        # 在对应成员后面增加组号
         ranked_rr_group_information['Group'] = group_id
-
-        # 保存本组的结果到列表中
         rr_player_information_list.append(ranked_rr_group_information)
         group_results.append(ranked_rr_group_information)
     
-    # 合并所有小组的循环赛结果
     rr_player_information = pd.concat(rr_player_information_list, ignore_index=True)
-    
-    # 进入淘汰赛阶段（假设 knockout_stage 接收合并后的 DataFrame）
     if is_knockout:
         if rounds_num is not None:
             knockout_stage_rounds_num = rounds_num - max_rounds_num_in_rr
@@ -573,42 +611,44 @@ def rr_knockout(win_matrix, player_information, rounds_num, matches_num, finish_
             knockout_stage_rounds_num = None
         rr_player_information = knockout_stage(group_results, win_matrix, rr_player_information, knockout_stage_rounds_num, knockout_stage_matches_num)
     ranked_information = rank_players(rr_player_information)
-
     return player_information, ranked_information
 
-"""
-阶梯赛
-阶梯赛是一种选手逐步上升的赛制，每个选手必须挑战比自己排名更高的选手，成功后可以晋升到更高的排名。
-"""
+########################################################################
+# 阶梯赛（Ladder Tournament）相关函数
+# 阶梯赛制的round思路：每一个round完成一次从末尾选手到第一位选手的循环
+########################################################################
+
 def ladder_tournament(win_matrix, player_information, round_num, matches_num, finish_all_rounds):
+    """
+    阶梯赛：选手依次挑战比自己排名更高者，挑战成功则交换位置。
+    
+    参数：
+      - win_matrix, player_information 同前。
+      - round_num: 指定比赛轮数；若采用场次数控制，则为 None。
+      - matches_num: 指定比赛场次数；若采用轮次数控制，则为 None。
+      - finish_all_rounds: 若为 True，则只执行一轮比赛，忽略其它控制参数。
+    
+    返回：
+      - 原始 player_information 与经过阶梯赛后的排名结果 DataFrame。
+    """
     ladder_information = player_information.copy()
     num_players = len(ladder_information)
-    played_matches = 0  # 累计已进行的比赛场数
-    actual_rounds = 0   # 实际进行的轮数
+    played_matches = 0
+    actual_rounds = 0
 
-    # 当 finish_all_rounds 为 True 时，只运行一轮，不考虑其它控制参数
     if finish_all_rounds:
-        ladder_information = player_information.copy()
-        num_players = len(ladder_information)
-        played_matches = 0  # 累计已进行的比赛场数
-
-        # 进行一轮比赛，从后往前依次进行
         for i in range(num_players - 1, 0, -1):
             played_matches += 1
             challenger = ladder_information.iloc[i]
             target = ladder_information.iloc[i-1]
-            # 判断比赛结果
             winner = win_judge_return_winner(win_matrix, challenger['Player'], target['Player'], ladder_information)
             if winner == challenger['Player']:
-                # 挑战成功，交换位置
                 ladder_information.iloc[i], ladder_information.iloc[i-1] = ladder_information.iloc[i-1], ladder_information.iloc[i]
-        # 返回原始数据、最终排名、轮数（1轮）和累计比赛场数
         ranked_information = rank_players(ladder_information)
         return player_information, ranked_information
 
     if round_num is not None:
-        # 以轮数控制比赛
-        for r in range(round_num):
+        for _ in range(round_num):
             for i in range(num_players - 1, 0, -1):
                 played_matches += 1
                 challenger = ladder_information.iloc[i]
@@ -618,7 +658,6 @@ def ladder_tournament(win_matrix, player_information, round_num, matches_num, fi
                     ladder_information.iloc[i], ladder_information.iloc[i-1] = ladder_information.iloc[i-1], ladder_information.iloc[i]
             actual_rounds += 1
     elif matches_num is not None:
-        # 以比赛场数控制比赛
         while played_matches < matches_num:
             round_occurred = False
             for i in range(num_players - 1, 0, -1):
@@ -637,4 +676,3 @@ def ladder_tournament(win_matrix, player_information, round_num, matches_num, fi
 
     ranked_information = rank_players(ladder_information)
     return player_information, ranked_information
-

@@ -8,19 +8,21 @@ import numpy as np
 ###########################################################
 def generate_random_match_pairs(players):
     """
-    随机配对选手进行比赛
+    随机配对选手进行比赛，不修改原始选手列表。
     """
-    random.shuffle(players)
+    players_copy = players.copy()  # 复制一份，避免修改原列表
+    random.shuffle(players_copy)
     match_schedule = []
-    while len(players) > 1:
-        p1 = players.pop(0)
-        p2 = players.pop(0)
+    
+    while len(players_copy) > 1:
+        p1 = players_copy.pop(0)
+        p2 = players_copy.pop(0)
         match_schedule.append((p1, p2))
-
-    # 轮空选手
-    if len(players) == 1:
-        match_schedule.append((players.pop(), 'N/A'))
-
+    
+    # 处理轮空选手
+    if len(players_copy) == 1:
+        match_schedule.append((players_copy.pop(), 'N/A'))
+    
     return match_schedule
 
 
@@ -82,6 +84,71 @@ def win_judge_return_winner(win_matrix, p1, p2, player_information):
             player_information.loc[player_information['Player'] == p2, 'Score'] += 1
             player_information.loc[player_information['Player'] == p2, 'Defeated_Opponents'].values[0].append(p1)
             return p2
+
+def win_judge_with_lose_time(win_matrix, p1, p2, player_information):
+    """
+    通过 胜负率矩阵 判断 p1 是否战胜 p2
+    参数：
+    - win_matrix: 胜负率矩阵
+    - p1, p2: 两个选手的编号
+
+    返回：
+    - updated_player_information: 更新后的选手信息 DataFrame
+    """
+    # 计算 p1 战胜 p2 的胜率，如果存在轮空，则默认选手积分
+    if p1 == 'N/A' or p1 is None:
+        win_rate = 0
+    elif p2 == 'N/A' or p2 is None:
+        win_rate = 1
+    else:
+        win_rate = win_matrix[p1 - 1, p2 - 1]
+
+    # 随机决定是否获胜（根据 win_rate）
+    if np.random.rand() < win_rate:
+        # p1 战胜 p2，更新 p1 的分数和战胜对手列表
+        player_information.loc[player_information['Player'] == p1, 'Score'] += 1
+        player_information.loc[player_information['Player'] == p1, 'Defeated_Opponents'].values[0].append(p2)
+        player_information.loc[player_information['Player'] == p2, 'Lose_Time'] += 1
+        return player_information
+    else:
+        if p2 != 'N/A' and p2 is not None:
+            player_information.loc[player_information['Player'] == p2, 'Score'] += 1
+            player_information.loc[player_information['Player'] == p2, 'Defeated_Opponents'].values[0].append(p1)
+            player_information.loc[player_information['Player'] == p1, 'Lose_Time'] += 1
+            return player_information
+
+def win_judge_with_weight(win_matrix, p1, p2, weight, player_information):
+    """
+    通过 胜负率矩阵 判断 p1 是否战胜 p2
+    参数：
+    - win_matrix: 胜负率矩阵
+    - p1, p2: 两个选手的编号
+
+    返回：
+    - updated_player_information: 更新后的选手信息 DataFrame
+    """
+    # 计算 p1 战胜 p2 的胜率，如果存在轮空，则默认选手积分
+    if p1 == 'N/A' or p1 is None:
+        win_rate = 0
+    elif p2 == 'N/A' or p2 is None:
+        win_rate = 1
+    else:
+        win_rate = win_matrix[p1 - 1, p2 - 1]
+
+    # 如果是第一轮，则设置为1
+    weight = 1 if weight == 0 else weight
+    # 随机决定是否获胜（根据 win_rate）
+    if np.random.rand() < win_rate:
+        # p1 战胜 p2，更新 p1 的分数和战胜对手列表
+        player_information.loc[player_information['Player'] == p1, 'Score'] += weight
+        player_information.loc[player_information['Player'] == p1, 'Defeated_Opponents'].values[0].append(p2)
+        return player_information
+    else:
+        if p2 != 'N/A' and p2 is not None:
+            player_information.loc[player_information['Player'] == p2, 'Score'] += weight
+            player_information.loc[player_information['Player'] == p2, 'Defeated_Opponents'].values[0].append(p1)
+            return player_information
+
 
 def one_round_match(win_matrix, player_information, schedule):
     """

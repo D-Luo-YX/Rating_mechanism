@@ -54,7 +54,7 @@ def strength_list(num_players, strengths_type, match_name,num_simulations=100):
 
         elif strengths_type == 'MultiGaussian':
             # 高斯混合模型
-            params_df = pd.read_csv(f"best_parameters/11_matrix_33/{match_name}_GMM.csv")
+            params_df = pd.read_csv(f"best_parameters/3_matrix_33/{match_name}_GMM.csv")
             # params_df = pd.read_csv(f"best_parameters/{match_name}_GMM.csv")
             A = params_df['A'].values
             B = params_df['B'].values

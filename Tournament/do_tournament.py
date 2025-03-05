@@ -1,28 +1,17 @@
-"""用真实数据的胜负率来做赛制模拟中的胜负"""
+import os
 import numpy as np
 import pandas as pd
 import random
-import numpy as np
-import os
 from matplotlib import rcParams
-from .coefficient import calculate_Spearman_coefficient
-from .coefficient import calculate_ndcg_Spearman_coefficient
+from .coefficient import calculate_Spearman_coefficient, calculate_ndcg_Spearman_coefficient
 from .tounaments import robin_round, swiss_round, double_elimination_random, weighted_round_robin, rr_knockout, ladder_tournament
 
 def standard_matrix(rows, cols):
     """
-    Generates a matrix with the given dimensions, filled with the value 0.5.
-
-    Parameters:
-        rows (int): Number of rows in the matrix (default is 3).
-        cols (int): Number of columns in the matrix (default is 3).
-
-    Returns:
-        numpy.ndarray: A matrix filled with 0.5.
+    用真实数据的胜负率生成矩阵，所有值固定为 0.5。
     """
     return np.full((rows, cols), 0.5)
 
-# # 方便每次初始化
 class PlayerData:
     def __init__(self, player_count):
         self.df = pd.DataFrame({
@@ -33,91 +22,111 @@ class PlayerData:
     def get_copy(self):
         return self.df.copy(deep=True)
 
-###########################################################
-################## 调用这个函数来运行赛制模拟 #################
-###########################################################
-def tournament_correlation(match_name, distribution_type, win_matrix, iterations, datatype):   
-    Initial_Player_DataFrame = pd.DataFrame({
-        "Player": range(1, win_matrix.shape[0] + 1),
-        "Score": [0.0] * win_matrix.shape[0],
-        "Defeated_Opponents": [[] for _ in range(win_matrix.shape[0])]
-    })
-
-    spearman_score_rr = 0
-    spearman_score_sr = 0
-    spearman_score_de = 0
-    spearman_score_weighted = 0
-    spearman_score_rr_knockout = 0
-    spearman_score_ladder = 0
-
-    ndcg_spearman_score_rr = 0
-    ndcg_spearman_score_sr = 0
-    ndcg_spearman_score_de = 0
-    ndcg_spearman_score_weighted = 0
-    ndcg_spearman_score_rr_knockout = 0
-    ndcg_spearman_score_ladder = 0
-
-    player_data = PlayerData(win_matrix.shape[0])
-    for i in range(iterations):
-        # 循环赛
-        rr_initial, rr_ranked = robin_round(win_matrix, player_data.get_copy())
-
-        # 瑞士轮（假设进行30轮）
-        # 这个地方有个bug，如果每次不重新创建Initial_Player_DataFrame的话，结果会叠加，有点不太清楚应该怎么消除这个bug
-        player_data = PlayerData(win_matrix.shape[0])
-        sr_initial, sr_ranked = swiss_round(win_matrix, player_data.get_copy(), round_num=30)
-
-        # 随机双淘汰赛
-        player_data = PlayerData(win_matrix.shape[0])
-        de_initial, de_ranked = double_elimination_random(win_matrix, player_data.get_copy())
-
-        # 加权循环赛
-        player_data = PlayerData(win_matrix.shape[0])
-        weighted_initial, weighted_ranked = weighted_round_robin(win_matrix, player_data.get_copy())
-
-        # 分组赛+淘汰赛
-        player_data = PlayerData(win_matrix.shape[0])
-        rr_knockout_initial, rr_knockout_ranked = rr_knockout(win_matrix, player_data.get_copy())
-
-        # 阶梯赛
-        player_data = PlayerData(win_matrix.shape[0])
-        ladder_initial, ladder_ranked = ladder_tournament(win_matrix, player_data.get_copy())
-
-        spearman_score_rr += calculate_Spearman_coefficient(rr_initial, rr_ranked)
-        spearman_score_sr += calculate_Spearman_coefficient(sr_initial, sr_ranked)
-        spearman_score_de += calculate_Spearman_coefficient(de_initial, de_ranked)
-        spearman_score_weighted += calculate_Spearman_coefficient(weighted_initial, weighted_ranked)
-        spearman_score_rr_knockout += calculate_Spearman_coefficient(rr_knockout_initial, rr_knockout_ranked)
-        spearman_score_ladder += calculate_Spearman_coefficient(ladder_initial, ladder_ranked)
-
-        ndcg_spearman_score_rr += calculate_ndcg_Spearman_coefficient(rr_initial, rr_ranked)
-        ndcg_spearman_score_sr += calculate_ndcg_Spearman_coefficient(sr_initial, sr_ranked)          
-        ndcg_spearman_score_de += calculate_ndcg_Spearman_coefficient(de_initial, de_ranked)
-        ndcg_spearman_score_weighted += calculate_ndcg_Spearman_coefficient(weighted_initial, weighted_ranked)
-        ndcg_spearman_score_rr_knockout += calculate_ndcg_Spearman_coefficient(rr_knockout_initial, rr_knockout_ranked)
-        ndcg_spearman_score_ladder += calculate_ndcg_Spearman_coefficient(ladder_initial, ladder_ranked)
+def tournament_correlation(match_name, distribution_type, win_matrix, iterations, datatype, param_type, param_values, save_path):
+    """
+    模拟多个赛制下的比赛，并返回各参数值下各赛制平均 Spearman 系数的结果，同时将每个参数计算结果以单行形式追加保存到 CSV 文件中，
+    以防止因运行中断而丢失中间结果。
     
-    # 保存结果
-    scores_result = pd.DataFrame({
-        "Match": [match_name],
-        "Distribution Type": [distribution_type],
-        "Data Type": [datatype],
-        # Spearman
-        "Spearman Round Robin": [spearman_score_rr/iterations],
-        "Spearman Swiss Round": [spearman_score_sr/iterations],
-        "Spearman Double Elimination": [spearman_score_de/iterations],
-        "Spearman Weighted Round Robin": [spearman_score_weighted/iterations],
-        "Spearman Round Robin Knockout": [spearman_score_rr_knockout/iterations],
-        "Spearman Ladder Tournament": [spearman_score_ladder/iterations],
-        # # NDCG_Spearman
-        "NDCG_Spearman Round Robin": [ndcg_spearman_score_rr/iterations],
-        "NDCG_Spearman Swiss Round": [ndcg_spearman_score_sr/iterations],
-        "NDCG_Spearman Double Elimination": [ndcg_spearman_score_de/iterations],
-        "NDCG_Spearman Weighted Round Robin": [ndcg_spearman_score_weighted/iterations],
-        "NDCG_Spearman Round Robin Knockout": [ndcg_spearman_score_rr_knockout/iterations],
-        "NDCG_Spearman Ladder Tournament": [ndcg_spearman_score_ladder/iterations]
-    })
-    return scores_result
+    参数：
+      - match_name: 比赛名称
+      - distribution_type: 选手实力分布类型
+      - win_matrix: 胜负矩阵
+      - iterations: 每个参数值下模拟的迭代次数
+      - datatype: 数据来源类型说明（"Real Data" 或 "Simulation"）
+      - param_type: "rounds" 表示以轮次数控制；"matches" 表示以场次数控制；"finish_all_rounds" 表示直到所有轮次结束
+      - param_values: 要测试的 rounds_num 或 matches_num 参数值列表
+      - save_path: 保存 CSV 文件的目录路径
+
+    返回：
+      - results_df: 包含所有模拟结果的 DataFrame（读取保存的 CSV 文件）
+    """
+
+    for param in param_values:
+        sum_spearman_rr = 0.0
+        sum_spearman_sr = 0.0
+        sum_spearman_de = 0.0
+        sum_spearman_weighted = 0.0
+        sum_spearman_rr_knockout = 0.0
+        sum_spearman_ladder = 0.0
         
-if __name__=='__main__':
-    tournament_correlation("Go", "Normal", standard_matrix(32, 32), 1, 'Real Data')
+        for i in range(iterations):
+            if param_type == "rounds":
+                rounds_num = param
+                matches_num_val = None
+                finish_all_rounds_flag = False
+            elif param_type == "matches":
+                rounds_num = None
+                matches_num_val = param
+                finish_all_rounds_flag = False
+            elif param_type == "finish_all_rounds":
+                rounds_num = None
+                matches_num_val = None
+                finish_all_rounds_flag = True
+            else:
+                raise ValueError("param_type 必须为 'rounds', 'matches' 或 'finish_all_rounds'之一")
+            
+            player_data = PlayerData(win_matrix.shape[0])
+            rr_initial, rr_ranked = robin_round(win_matrix, player_data.get_copy(), rounds_num, matches_num_val, finish_all_rounds_flag)
+            player_data = PlayerData(win_matrix.shape[0])
+            sr_initial, sr_ranked = swiss_round(win_matrix, player_data.get_copy(), rounds_num, matches_num_val, finish_all_rounds_flag)
+            player_data = PlayerData(win_matrix.shape[0])
+            de_initial, de_ranked = double_elimination_random(win_matrix, player_data.get_copy(), rounds_num, matches_num_val, finish_all_rounds_flag)
+            player_data = PlayerData(win_matrix.shape[0])
+            weighted_initial, weighted_ranked = weighted_round_robin(win_matrix, player_data.get_copy(), rounds_num, matches_num_val, finish_all_rounds_flag)
+            player_data = PlayerData(win_matrix.shape[0])
+            rr_knockout_initial, rr_knockout_ranked = rr_knockout(win_matrix, player_data.get_copy(), rounds_num, matches_num_val, finish_all_rounds_flag)
+            player_data = PlayerData(win_matrix.shape[0])
+            ladder_initial, ladder_ranked = ladder_tournament(win_matrix, player_data.get_copy(), rounds_num, matches_num_val, finish_all_rounds_flag)
+            
+            sum_spearman_rr += calculate_Spearman_coefficient(rr_initial, rr_ranked)
+            sum_spearman_sr += calculate_Spearman_coefficient(sr_initial, sr_ranked)
+            sum_spearman_de += calculate_Spearman_coefficient(de_initial, de_ranked)
+            sum_spearman_weighted += calculate_Spearman_coefficient(weighted_initial, weighted_ranked)
+            sum_spearman_rr_knockout += calculate_Spearman_coefficient(rr_knockout_initial, rr_knockout_ranked)
+            sum_spearman_ladder += calculate_Spearman_coefficient(ladder_initial, ladder_ranked)
+            
+            print(f"Match: {match_name}; Distribution: {distribution_type}; DataType: {datatype}; Param: {param}; Iteration: {i+1}/{iterations} finished.")
+        
+        # 计算平均值
+        avg_spearman_rr = sum_spearman_rr / iterations
+        avg_spearman_sr = sum_spearman_sr / iterations
+        avg_spearman_de = sum_spearman_de / iterations
+        avg_spearman_weighted = sum_spearman_weighted / iterations
+        avg_spearman_rr_knockout = sum_spearman_rr_knockout / iterations
+        avg_spearman_ladder = sum_spearman_ladder / iterations
+        
+        row = {
+            "Match": match_name,
+            "Distribution Type": distribution_type,
+            "Data Type": datatype,
+            "Parameter": param,
+            "Spearman Round Robin": avg_spearman_rr,
+            "Spearman Swiss Round": avg_spearman_sr,
+            "Spearman Double Elimination": avg_spearman_de,
+            "Spearman Weighted Round Robin": avg_spearman_weighted,
+            "Spearman Round Robin Knockout": avg_spearman_rr_knockout,
+            "Spearman Ladder Tournament": avg_spearman_ladder
+        }
+        
+        # 将该行结果追加到 CSV 文件
+        temp_df = pd.DataFrame([row])
+        # 如果文件不存在，则写入表头；否则追加写入且不写入表头
+        temp_df.to_csv(save_path, mode='a', index=False, header=not os.path.exists(save_path))
+    
+    results_df = pd.read_csv(save_path)
+    return results_df
+
+if __name__ == '__main__':
+    win_matrix = standard_matrix(9, 9)
+    iterations = 5
+    match_name = "Go"
+    distribution_type = "Normal"
+    datatype = "Real Data"
+    
+    # 例如：以轮次数控制，测试 rounds_num 从 1 到 10
+    param_type = "rounds"
+    param_values = list(range(1, 11))
+    save_path = os.getcwd() 
+    
+    results_df = tournament_correlation(match_name, distribution_type, win_matrix, iterations, datatype, param_type, param_values, save_path)
+    print(results_df)

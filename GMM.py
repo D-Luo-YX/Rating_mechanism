@@ -156,7 +156,7 @@ def plot_GMMs(folder):
     plt.xlabel("Skill Value")
     plt.ylabel("Probability Density")
     plt.legend()
-    plt.show()
+    # plt.show()
 
     # -------------------------------
     # 图2：归一化后的混合分布，将四条曲线绘制在同一幅图中
@@ -172,7 +172,7 @@ def plot_GMMs(folder):
     plt.xlabel("Normalized Strength Value")
     plt.ylabel("Normalized Probability Density")
     plt.legend()
-    plt.show()
+    # plt.show()
 if __name__ == '__main__':
 
     # set_random_seed(42)
