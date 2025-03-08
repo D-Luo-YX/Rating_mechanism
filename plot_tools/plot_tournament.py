@@ -70,8 +70,6 @@ def plot_tournament_curve(correlations, correlation_type, distribution_type, dat
         save_file = os.path.join(real_path, filename)
         plt.savefig(save_file)
         plt.close()
-        print(f"图像已保存至：{save_file}")
-
 
 def plot_tournament_simulation(scores_result, result_path, correlation_type, distribution_type, data_type):
     """
@@ -159,7 +157,7 @@ def concat_images(image_folder):
     
     new_image.save(os.path.join(image_folder, 'tournament.png'), dpi=(300, 300))
 
-def concat_curve_images(image_folder, data_type):
+def concat_curve_images(image_folder, data_type , picture_name):
     """
     拼接大图，按照图片文件名称的字典序排序。
     """
@@ -193,47 +191,51 @@ def concat_curve_images(image_folder, data_type):
         col = index % cols
         new_image.paste(image, (col * width, row * height))
     
-    new_image.save(os.path.join(image_folder, f'tournament_{data_type}.png'), dpi=(300, 300))
+    new_image.save(os.path.join(image_folder, f'tournament_{picture_name}_{data_type}.png'), dpi=(300, 300))
 
 if __name__ == "__main__":
-    # correlations = pd.read_csv("tournament_result/correlations_simulation.csv")
-    # correlations_tounament_simulation_dirpath = "tournament_result"
-    # distribution = ['Uniform', 'PL', 'Normal','MultiGaussian']
+    correlation_types = ['Spearman']
+    data_types = ['Real Data', 'Simulation Data']
+    distribution_types = ['Uniform', 'PL', 'Normal', 'MultiGaussian']
+    correlations_tounament_simulation_dirpath = "tournament_result_simulations=2_parmmin=1_prammax=3"
+    correlations = pd.read_csv("tournament_result_simulations=2_parmmin=1_prammax=3/correlations_tournament.csv")
+    type = 'bar'
+        # 绘制曲线图的代码
+    if type == 'curve':
+        # 筛选出绘制曲线的数据
+        correlations = correlations[correlations['Parameter Type'] == 'rounds']
+        real_path = os.path.join(correlations_tounament_simulation_dirpath,'Curve/real_data')
+        simulation_path = os.path.join(correlations_tounament_simulation_dirpath,'Curve/simulation_data')
+        if not os.path.exists(real_path):
+            os.makedirs(real_path)
+        if not os.path.exists(simulation_path):
+            os.makedirs(simulation_path)
 
-    # real_path = os.path.join(correlations_tounament_simulation_dirpath,'real_data')
-    # simulation_path = os.path.join(correlations_tounament_simulation_dirpath,'simulation_data')
-    # if not os.path.exists(real_path):
-    #     os.makedirs(real_path)
-    # if not os.path.exists(simulation_path):
-    #     os.makedirs(simulation_path)
+        for correlation_type in correlation_types:
+            for data_type in data_types:
+                for distribution_type in distribution_types:
+                    if data_type == 'Real Data':
+                        plot_tournament_curve(correlations, correlation_type, distribution_type, data_type, real_path)
+                    else:
+                        plot_tournament_curve(correlations, correlation_type, distribution_type, data_type, simulation_path)
+        concat_curve_images(real_path, 'real_data', 'curve')
+        concat_curve_images(simulation_path, 'simulation_data', 'curve')
 
-    # for correlation_type in ['Spearman', 'NDCG_Spearman']:
-    #     for data_type in ['Simulation Data', 'Real Data']:
-    #         for distribution_type in distribution:
-    #             if data_type == 'Real Data':
-    #                 plot_tournament_simulation(correlations, real_path, correlation_type, distribution_type, data_type)
-    #             else:
-    #                 plot_tournament_simulation(correlations, simulation_path, correlation_type, distribution_type, data_type)
-    # concat_images(real_path)
-    # concat_images(simulation_path)
-
-    correlations = pd.read_csv("tournament_result_simulations=20_param=rounds_parmmin=1_prammax=40/correlations_tournament.csv")
-    correlations_tounament_simulation_dirpath = "tournament_result_simulations=20_param=rounds_parmmin=1_prammax=40"
-    distribution = ['Uniform', 'PL', 'Normal','MultiGaussian']
-
-    real_path = os.path.join(correlations_tounament_simulation_dirpath,'real_data')
-    simulation_path = os.path.join(correlations_tounament_simulation_dirpath,'simulation_data')
- 
-    if not os.path.exists(real_path):
-        os.makedirs(real_path)
-    if not os.path.exists(simulation_path):
-        os.makedirs(simulation_path)
-    for correlation_type in ['Spearman']:
-        for data_type in ['Simulation Data', 'Real Data']:
-            for distribution_type in distribution:
-                if data_type == 'Real Data':
-                    plot_tournament_curve(correlations, correlation_type, distribution_type, data_type, real_path)
-                else:
-                    plot_tournament_curve(correlations, correlation_type, distribution_type, data_type, simulation_path)
-    concat_curve_images(real_path, 'real_data')
-    concat_curve_images(simulation_path, 'simulation_data')
+    # 绘制柱状图的代码
+    elif type == 'bar':
+        correlations = correlations[correlations['Parameter Type'] == 'finish_all_rounds']
+        real_path = os.path.join(correlations_tounament_simulation_dirpath,'Bar/real_data')
+        simulation_path = os.path.join(correlations_tounament_simulation_dirpath,'Bar/simulation_data')
+        if not os.path.exists(real_path):
+            os.makedirs(real_path)
+        if not os.path.exists(simulation_path):
+            os.makedirs(simulation_path)
+        for correlation_type in correlation_types:
+            for data_type in data_types:
+                for distribution_type in distribution_types:
+                    if data_type == 'Real Data':
+                        plot_tournament_simulation(correlations, real_path, correlation_type, distribution_type, data_type)
+                    else:
+                        plot_tournament_simulation(correlations, simulation_path, correlation_type, distribution_type, data_type)
+        concat_curve_images(real_path, 'real_data', 'bar')
+        concat_curve_images(simulation_path, 'simulation_data', 'bar')

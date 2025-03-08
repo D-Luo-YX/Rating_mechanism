@@ -37,6 +37,14 @@ from .win_judge import (
     rank_players, 
     win_judge_with_lose_time
 )
+# from win_judge import (
+#     win_judge_return_winner, 
+#     win_judge_with_weight, 
+#     generate_random_match_pairs, 
+#     one_round_match, 
+#     rank_players, 
+#     win_judge_with_lose_time
+# )
 
 ########################################################################
 # 循环赛（Round Robin）相关函数
@@ -63,7 +71,7 @@ def generate_match_pairs(num_rows):
 
     # 初始化选手列表：若原始为奇数，则最后一个为 'N/A'
     players = list(range(1, num_rows+1)) if not is_odd else list(range(1, num_rows)) + ['N/A']
-    random.shuffle(players)
+    # random.shuffle(players)
     match_schedule = []
 
     for _ in range(num_rows - 1):
@@ -164,14 +172,13 @@ def sr_one_round_match_list(player_information, total_matches_played, matches_nu
     match_list = []
     player_information = player_information.sort_values(by=["Score"], ascending=False)
     players = player_information["Player"].tolist()
-    defeated_opponents = player_information["Defeated_Opponents"].tolist()
     used_players = set()
     while players:
         p1 = players.pop(0)
         if p1 in used_players:
             continue
         for i, p2 in enumerate(players):
-            if p2 not in defeated_opponents[p1 - 1]:
+            if p2 not in player_information[player_information["Player"] == p1]["Defeated_Opponents"].iloc[0] and p1 not in player_information[player_information["Player"] == p2]["Defeated_Opponents"].iloc[0]:
                 match_list.append((p1, p2))
                 used_players.add(p1)
                 used_players.add(p2)
@@ -213,7 +220,10 @@ def swiss_round(win_matrix, player_information, round_num, matches_num, finish_a
                 one_round_list, _ = sr_first_round_match_list(sr_information, None, None)
             else:
                 one_round_list, _ = sr_one_round_match_list(sr_information, None, None)
-            sr_information = one_round_match(win_matrix, sr_information, one_round_list)
+            # 如果是最后一轮，不需要更新选手信息
+            if len(one_round_list) < math.ceil(num_rows/2):
+                break
+            sr_information = one_round_match(win_matrix, sr_information, one_round_list)    
         ranked_sr_information = rank_players(sr_information)
         return player_information, ranked_sr_information
     elif round_num is None:
@@ -223,7 +233,7 @@ def swiss_round(win_matrix, player_information, round_num, matches_num, finish_a
             else:
                 one_round_list, total_matches_played = sr_one_round_match_list(sr_information, total_matches_played, matches_num)
             sr_information = one_round_match(win_matrix, sr_information, one_round_list)
-            if total_matches_played == matches_num:
+            if total_matches_played == matches_num or len(one_round_list) < math.ceil(num_rows/2):
                 break
         ranked_sr_information = rank_players(sr_information)
         return player_information, ranked_sr_information
@@ -263,6 +273,7 @@ def generate_double_elimination_pairs(player_information, is_first_time, total_m
             match_schedule.append((players.pop(), 'N/A'))
         return match_schedule, total_matches_num
     else:
+        # 最后一场比赛
         if len(player_information[player_information['Lose_Time'] == 1]["Player"].tolist()) == 1 and \
            len(player_information[player_information['Lose_Time'] == 0]["Player"].tolist()) == 1:
             match_schedule = []
@@ -323,7 +334,7 @@ def double_elimination_random(win_matrix, player_information, round_num, matches
 
     for i in range(round_num):
         if len(de_information[de_information['Lose_Time'] == 2]["Player"].tolist()) == len(de_information)-1:
-            print("比赛已达最大轮次，结束。")
+            # print("比赛已达最大轮次，结束。")
             break
         if i == 0:
             if matches_num is not None and total_matches_num == matches_num:
@@ -340,75 +351,41 @@ def double_elimination_random(win_matrix, player_information, round_num, matches
     ranked_de_information = rank_players(de_information)
     return de_information, ranked_de_information
 
-########################################################################
-# 加权循环赛（Weighted Round Robin）相关函数 
-# 这里我做了修改，之前的赛制提前使用了选手信息，不合理，现在改为根据每一轮的结果动态调整权重
-########################################################################
-
-def generate_weighted_match_pairs(num_rows, player_information, round_num):
-    """
-    生成加权对阵表：
-      - 基于轮转思想生成对阵表，若总玩家数为奇数，则添加虚拟玩家 'N/A'。
-      - 每场比赛权重依据两个选手当前分数计算（或取平均值）。
-    
-    参数：
-      - num_rows: 整数，总玩家数量（不含虚拟玩家）。
-      - player_information: DataFrame，需含 'Player' 及 'Score' 列。
-      - round_num: 当前轮次（用于权重调整，具体可根据实际需求调整）。
-    
-    返回：
-      - match_schedule: 每轮对阵表的列表，每个元素为 (player1, player2, weight) 三元组的列表。
-    """
-    is_odd = num_rows % 2 != 0
-    if is_odd:
-        num_rows += 1
-
-    players = list(range(1, num_rows+1)) if not is_odd else list(range(1, num_rows)) + ['N/A']
-    random.shuffle(players)
+"""
+加权循环赛
+选手之间的每场比赛可能具有不同的权重。例如，前几名的选手之间的比赛可能比后几名选手之间的比赛更重要。权重通常会影响选手的得分或者比赛结果。
+"""
+def generate_weighted_match_pairs(num_players):
+    players = list(range(1, num_players + 1))
     match_schedule = []
-
-    for _ in range(num_rows - 1):
-        pairs = []
-        pairs_weighted = []
-        for i in range(len(players) // 2):
-            pairs.append((players[i], players[len(players) - 1 - i]))
-        for player1, player2 in pairs:
-            if player1 == 'N/A':
-                weights = player_information.loc[player_information['Player'] == player2, 'Score'].values[0]
-            elif player2 == 'N/A':
-                weights = player_information.loc[player_information['Player'] == player1, 'Score'].values[0]
-            else:
-                weights = (player_information.loc[player_information['Player'] == player1, 'Score'].values[0] +
-                           player_information.loc[player_information['Player'] == player2, 'Score'].values[0]) / 2
-            pairs_weighted.append((player1, player2, weights))
-        match_schedule.append(pairs_weighted)
-        players = [players[0]] + players[1:][1:] + [players[1]]
+    
+    # 为每场比赛分配一个权重
+    weights = np.linspace(10, 1, num_players-1)  # 比赛权重从1到10线性变化
+    
+    for i in range(num_players):
+        for j in range(i + 1, num_players):
+            match_schedule.append((players[i], players[j], weights[i]))
+    
     return match_schedule
 
+
 def weighted_round_robin(win_matrix, player_information, rounds_num, matches_num, finish_all_rounds):
-    """
-    加权循环赛：每个选手均与其他选手对阵，比赛权重根据当前分数动态调整。
-    
-    参数同循环赛，但使用 generate_weighted_match_pairs 生成含权重的对阵表。
-    
-    返回：
-      - 原始 player_information 与加权循环赛后的排序结果 DataFrame。
-    """
     weighted_information = player_information.copy()
-    num_rows = weighted_information.shape[0]
-    match_schedule = generate_weighted_match_pairs(num_rows, weighted_information, round_num=1)
+    num_players = weighted_information.shape[0]
+    
+    match_schedule = generate_weighted_match_pairs(num_players)
 
     if finish_all_rounds:
+        # 保留所有生成的轮次
         pass
     elif matches_num is None:
-        if rounds_num > num_rows:
-            # print("轮次数超过最大值，自动调整。")
-            rounds_num = num_rows
+        if rounds_num > num_players:
+            # print("轮次数超过最多可能轮次数，自动调整。")
+            rounds_num = num_players
         match_schedule = match_schedule[:rounds_num]
     elif rounds_num is None:
         # if matches_num < math.ceil(num_rows / 2):
-        #     print("比赛场次数不足以完成一轮。")
-        matches_count = 0
+        #     print("比赛场次数小于选手数量，无法完成一轮。")
         truncated_schedule = []
         for round_pairs in match_schedule:
             round_truncated = []
@@ -420,26 +397,18 @@ def weighted_round_robin(win_matrix, player_information, rounds_num, matches_num
                 truncated_schedule.append(round_truncated)
         match_schedule = truncated_schedule
 
-    for round_idx, round_pairs in enumerate(match_schedule):
-        for p1, p2, weight in round_pairs:
-            weighted_information = win_judge_with_weight(win_matrix, p1, p2, weight, weighted_information)
-        if round_idx + 1 < len(match_schedule):
-            temp = match_schedule[round_idx + 1]
-            match_schedule[round_idx + 1] = []
-            for p1, p2, _ in temp:
-                if p1 != 'N/A':
-                    p1_score = weighted_information.loc[weighted_information['Player'] == p1, 'Score'].values[0]
-                if p2 != 'N/A':
-                    p2_score = weighted_information.loc[weighted_information['Player'] == p2, 'Score'].values[0]
-                if p1 == 'N/A':
-                    weight = np.float64(0.5) if p2_score == 0 else p2_score / 2
-                elif p2 == 'N/A':
-                    weight = np.float64(0.5) if p1_score == 0 else p1_score / 2
-                else:
-                    weight = (p1_score + p2_score) / 2
-                match_schedule[round_idx + 1].append((p1, p2, weight))
-    ranked_weighted_information = rank_players(weighted_information)
-    return player_information, ranked_weighted_information
+    for p1, p2, weight in match_schedule:
+        win_rate = win_matrix[p1-1, p2-1]
+        if np.random.rand() < win_rate:
+            weighted_information.loc[weighted_information['Player'] == p1, 'Score'] += weight
+            weighted_information.loc[weighted_information['Player'] == p1, 'Defeated_Opponents'].values[0].append(p2)
+        else:
+            weighted_information.loc[weighted_information['Player'] == p2, 'Score'] += weight
+            weighted_information.loc[weighted_information['Player'] == p2, 'Defeated_Opponents'].values[0].append(p1)
+    
+    ranked_information = rank_players(weighted_information)
+    
+    return player_information, ranked_information
 
 ########################################################################
 # 分组赛 + 淘汰赛相关函数
@@ -486,8 +455,13 @@ def knockout_stage(group_results, win_matrix, rr_player_information, knockout_st
 
     # 取各组前两名
     for group in group_results:
-        knockout_players.append(group.iloc[0])
-        knockout_players.append(group.iloc[1])
+        # 如果每组人数不足两名
+        if len(group) < 2:
+            knockout_players.append(group.iloc[0])
+        else:
+            knockout_players.append(group.iloc[0])
+            knockout_players.append(group.iloc[1])
+
     knockout_information = pd.DataFrame(knockout_players)
     players = knockout_information['Player'].tolist()
     players_copy = players.copy()
@@ -553,6 +527,7 @@ def rr_knockout(win_matrix, player_information, rounds_num, matches_num, finish_
     分组赛 + 淘汰赛：
       - 循环赛阶段：各分组内部进行循环赛，各组比赛轮次相同，每轮结果保留组号。
       - 淘汰赛阶段：根据各组排名进入单败淘汰赛。
+    这里的轮次数量分为两部分：循环赛的轮次数量和淘汰赛的比赛场次数量。其中，循环赛的轮次数量为一个小组的轮次数量，因为每个小组的人数是相同的，我们认为一轮比赛包括所有的小组的该轮。
     
     参数：
       - win_matrix, player_information 同前。
@@ -581,6 +556,8 @@ def rr_knockout(win_matrix, player_information, rounds_num, matches_num, finish_
     if finish_all_rounds:
         rounds_num = None
         matches_num = None
+        knockout_stage_rounds_num = None
+        knockout_stage_matches_num = None
 
     for group_id, group in enumerate(groups, start=1):
         group_info = rrknockout_information[rrknockout_information['Player'].isin(group)].copy()
