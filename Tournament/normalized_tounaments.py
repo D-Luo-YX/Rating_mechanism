@@ -355,17 +355,31 @@ def double_elimination_random(win_matrix, player_information, round_num, matches
 加权循环赛
 选手之间的每场比赛可能具有不同的权重。例如，前几名的选手之间的比赛可能比后几名选手之间的比赛更重要。权重通常会影响选手的得分或者比赛结果。
 """
-def generate_weighted_match_pairs(num_players):
-    players = list(range(1, num_players + 1))
+def generate_weighted_match_pairs(num_rows):
+    is_odd = num_rows % 2 != 0
+    if is_odd:
+        num_rows += 1  # 增加虚拟玩家
+
+    # 初始化选手列表：若原始为奇数，则最后一个为 'N/A'
+    players = list(range(1, num_rows+1)) if not is_odd else list(range(1, num_rows)) + ['N/A']
+    # random.shuffle(players)
     match_schedule = []
-    
     # 为每场比赛分配一个权重
-    weights = np.linspace(10, 1, num_players-1)  # 比赛权重从1到10线性变化
-    
-    for i in range(num_players):
-        for j in range(i + 1, num_players):
-            match_schedule.append((players[i], players[j], weights[i]))
-    
+    # 生成一个字典，键为选手编号，值为该选手的比赛权重
+    weights = np.linspace(np.sqrt(num_rows), 1, num_rows-1)  # 比赛权重从1到人数开根线性变化
+    weights_dict = {players[i]: weights[i] for i in range(num_rows-1)}
+    for _ in range(num_rows - 1):
+        pairs = []
+        for i in range(len(players) // 2):
+            if players[len(players) - 1 - i] == 'N/A':
+                pairs.append((players[i], players[len(players) - 1 - i], weights_dict[players[i]]))
+            elif players[i] == 'N/A':
+                pairs.append((players[i], players[len(players) - 1 - i], weights_dict[players[len(players) - 1 - i]]))
+            else:
+                pairs.append((players[i], players[len(players) - 1 - i], (weights_dict[players[i]]+weights_dict[players[len(players) - 1 - i]])/2))
+        match_schedule.append(pairs)
+        # 轮转：保持第一个选手不变，其余选手轮转
+        players = [players[0]] + players[1:][1:] + [players[1]]
     return match_schedule
 
 
@@ -397,15 +411,23 @@ def weighted_round_robin(win_matrix, player_information, rounds_num, matches_num
                 truncated_schedule.append(round_truncated)
         match_schedule = truncated_schedule
 
-    for p1, p2, weight in match_schedule:
-        win_rate = win_matrix[p1-1, p2-1]
-        if np.random.rand() < win_rate:
-            weighted_information.loc[weighted_information['Player'] == p1, 'Score'] += weight
-            weighted_information.loc[weighted_information['Player'] == p1, 'Defeated_Opponents'].values[0].append(p2)
-        else:
-            weighted_information.loc[weighted_information['Player'] == p2, 'Score'] += weight
-            weighted_information.loc[weighted_information['Player'] == p2, 'Defeated_Opponents'].values[0].append(p1)
-    
+    for round_pairs in match_schedule:
+        for p1, p2, weight in round_pairs:
+            if p1 == 'N/A':
+                weighted_information.loc[weighted_information['Player'] == p2, 'Score'] += weight
+                weighted_information.loc[weighted_information['Player'] == p2, 'Defeated_Opponents'].values[0].append(p1)
+            elif p2 == 'N/A':
+                weighted_information.loc[weighted_information['Player'] == p1, 'Score'] += weight
+                weighted_information.loc[weighted_information['Player'] == p1, 'Defeated_Opponents'].values[0].append(p2)
+            else:
+                win_rate = win_matrix[p1-1, p2-1]
+                if np.random.rand() < win_rate:
+                    weighted_information.loc[weighted_information['Player'] == p1, 'Score'] += weight
+                    weighted_information.loc[weighted_information['Player'] == p1, 'Defeated_Opponents'].values[0].append(p2)
+                else:
+                    weighted_information.loc[weighted_information['Player'] == p2, 'Score'] += weight
+                    weighted_information.loc[weighted_information['Player'] == p2, 'Defeated_Opponents'].values[0].append(p1)
+            
     ranked_information = rank_players(weighted_information)
     
     return player_information, ranked_information

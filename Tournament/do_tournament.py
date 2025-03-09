@@ -6,7 +6,6 @@ from matplotlib import rcParams
 from .coefficient import calculate_Spearman_coefficient, calculate_ndcg_Spearman_coefficient
 from .normalized_tounaments import robin_round, swiss_round, double_elimination_random, weighted_round_robin, rr_knockout, ladder_tournament
 # from coefficient import calculate_Spearman_coefficient, calculate_ndcg_Spearman_coefficient
-
 # from normalized_tounaments import robin_round, swiss_round, double_elimination_random, weighted_round_robin, rr_knockout, ladder_tournament
 
 
