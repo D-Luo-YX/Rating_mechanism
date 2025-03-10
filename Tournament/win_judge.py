@@ -172,30 +172,43 @@ def calculate_opponent_score(player_information):
 
 def rank_players(player_information):
     """
-    对选手进行排名，按总分 -> 对手小分 -> 直接胜负关系排序。
+    对选手进行排名，按总分 -> 对手小分 -> 直接胜负关系排序 -> tie-breaker排序。
+    当总分和对手小分相同时，如果直接胜负关系无法区分，则使用随机生成的 tie-breaker 值进行排序，
+    避免默认使用选手编号排序。
     """
     # 计算对手小分
     player_information = calculate_opponent_score(player_information)
-
-    # 按总分和对手小分排序
-    player_information = player_information.sort_values(by=['Score', 'Opponent_Score'], ascending=False).reset_index(drop=True)
-
-    # 处理总分和对手小分都相同的情况：比较直接胜负关系
-    ranked_list = [player_information.iloc[0]]  # 添加第一个选手
+    
+    # 为每个选手增加一个随机 tie-breaker 值
+    player_information = player_information.copy()
+    player_information["TieBreaker"] = np.random.rand(len(player_information))
+    
+    # 按总分、对手小分、tie-breaker排序（均降序排序）
+    player_information = player_information.sort_values(
+        by=['Score', 'Opponent_Score', 'TieBreaker'], 
+        ascending=False
+    ).reset_index(drop=True)
+    
+    # 针对总分和对手小分相同的情况，使用直接胜负关系重新调整顺序
+    ranked_list = [player_information.iloc[0]]  # 添加第一位选手
     for i in range(1, len(player_information)):
         current_player = player_information.iloc[i]
         previous_player = ranked_list[-1]
-
-        # 检查是否需要比较直接胜负关系
-        if current_player['Score'] == previous_player['Score'] and current_player['Opponent_Score'] == previous_player['Opponent_Score']:
-            # 检查直接胜负关系：当前选手是否战胜了前一个选手
+        
+        # 如果当前选手与前一位选手总分和对手小分相同，则检查直接胜负关系
+        if (current_player['Score'] == previous_player['Score'] and 
+            current_player['Opponent_Score'] == previous_player['Opponent_Score']):
+            # 若当前选手曾战胜前一位选手，则应排在前面
             if current_player['Player'] in previous_player['Defeated_Opponents']:
-                ranked_list.insert(len(ranked_list) - 1, current_player)  # 插入到前一个选手之前
+                ranked_list.insert(len(ranked_list) - 1, current_player)
+            # 若前一位选手曾战胜当前选手，则当前选手放后面
+            elif previous_player['Player'] in current_player['Defeated_Opponents']:
+                ranked_list.append(current_player)
             else:
+                # 如果双方没有直接对阵，则依赖 tie-breaker 保持原排序
                 ranked_list.append(current_player)
         else:
             ranked_list.append(current_player)
-
-    # 转换为 DataFrame
+    
     ranked_df = pd.DataFrame(ranked_list)
     return ranked_df

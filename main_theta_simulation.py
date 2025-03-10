@@ -185,7 +185,7 @@ if __name__ == '__main__':
     tournament_iterations = 50
     # 以轮次数控制，测试 rounds_num 从 1 到 10
     param_min = 1
-    param_max = 34
+    param_max = 33
     param_values = list(range(param_min, param_max+1))
 
     #赛制的path
