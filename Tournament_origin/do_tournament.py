@@ -8,6 +8,7 @@ from .normalized_tounaments import robin_round, swiss_round, double_elimination_
 # from coefficient import calculate_Spearman_coefficient, calculate_ndcg_Spearman_coefficient
 # from normalized_tounaments import robin_round, swiss_round, double_elimination_random, weighted_round_robin, rr_knockout, ladder_tournament
 
+
 def standard_matrix(rows, cols):
     """
     用真实数据的胜负率生成矩阵，所有值固定为 0.5。

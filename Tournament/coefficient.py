@@ -34,25 +34,69 @@ def calculate_Spearman_coefficient(player_information, ranked_information):
 
     return spearman_score
 
+# def calculate_ndcg_Spearman_coefficient(player_information, ranked_information):
+#     """
+#     计算 NDCG-Spearman 相关系数，结合了排名加权的思想，排名越靠前的选手越重要。
+#     通过给排名乘上对数衰减因子来增强排名靠前选手的重要性。
+#     """
+#     initial_rank = player_information['Player'].rank()
+#     result_rank = ranked_information['Player'].rank()
+
+#     x_bar = initial_rank.mean()
+#     y_bar = result_rank.mean()
+
+#     # 计算分子：∑ (xi - x̄) * (yi - ȳ) / log2(i+1)
+#     numerator = np.sum(((initial_rank - x_bar) * (result_rank - y_bar)) / np.log2(np.arange(1, len(initial_rank) + 1) + 1))
+
+#     # 计算分母：√(∑(xi - x̄)² / log2(i+1) * ∑(yi - ȳ)² / log2(i+1))
+#     denominator = np.sqrt(np.sum(((initial_rank - x_bar) ** 2) / np.log2(np.arange(1, len(initial_rank) + 1) + 1)) *
+#                           np.sum(((result_rank - y_bar) ** 2) / np.log2(np.arange(1, len(result_rank) + 1) + 1)))
+
+#     ndcg_spearman_score = numerator / denominator
+
+#     return ndcg_spearman_score
+
+# def calculate_ndcg_Spearman_coefficient(player_information, ranked_information):
+#     """
+#     计算 NDCG-Spearman 相关系数，结合了排名加权的思想，排名越靠前的选手越重要。
+#     """
+#     # 获取原始排名和排名结果
+#     initial_rank = player_information['Player'].rank()
+#     result_rank = ranked_information['Player'].rank()
+
+#     # 计算排名差 d_i
+#     d = initial_rank - result_rank
+
+#     # 计算折扣因子 w_i
+#     w = 1 / np.log2(np.arange(1, len(player_information) + 1) + 1)  # log2(i+1)
+
+#     # 计算加权排名差的平方
+#     weighted_d_squared = w * d**2
+
+#     # 计算 NDCG-Spearman 相关系数
+#     n = len(player_information)
+#     ndcg_spearman_score = 1 - (6 * np.sum(weighted_d_squared)) / (n * (n**2 - 1))
+    
+#     return ndcg_spearman_score
+
 def calculate_ndcg_Spearman_coefficient(player_information, ranked_information):
     """
-    计算 NDCG-Spearman 相关系数，结合了排名加权的思想，排名越靠前的选手越重要。
-    通过给排名乘上对数衰减因子来增强排名靠前选手的重要性。
+    计算NDCG-Spearman相关系数，结合了加权差异平方和和标准化方法，保证结果在[-1,1]范围内
     """
-    initial_rank = player_information['Player'].rank()
-    result_rank = ranked_information['Player'].rank()
-
-    x_bar = initial_rank.mean()
-    y_bar = result_rank.mean()
-
-    # 计算分子：∑ (xi - x̄) * (yi - ȳ) / log2(i+1)
-    numerator = np.sum(((initial_rank - x_bar) * (result_rank - y_bar)) / np.log2(np.arange(1, len(initial_rank) + 1) + 1))
-
-    # 计算分母：√(∑(xi - x̄)² / log2(i+1) * ∑(yi - ȳ)² / log2(i+1))
-    denominator = np.sqrt(np.sum(((initial_rank - x_bar) ** 2) / np.log2(np.arange(1, len(initial_rank) + 1) + 1)) *
-                          np.sum(((result_rank - y_bar) ** 2) / np.log2(np.arange(1, len(result_rank) + 1) + 1)))
-
-    ndcg_spearman_score = numerator / denominator
-
-    return ndcg_spearman_score
-
+    RA = player_information['Player'].values
+    RB = ranked_information['Player'].values
+    n = len(RA)
+    
+    di = RA - RB  # 排名差异
+    wi = 1 / np.log2(np.arange(1, n + 1) + 1)  # 位置权重
+    
+    # 加权差异平方和
+    S = np.sum(wi * (di ** 2))
+    
+    # 最大可能加权差异Smax（完全逆序）
+    di_max = 2 * np.arange(1, n + 1) - n - 1  # 完全逆序时的排名差异
+    Smax = np.sum(wi * (di_max ** 2))
+    
+    ndcg_Spearman = 1 - (2 * S / Smax)
+    
+    return ndcg_Spearman

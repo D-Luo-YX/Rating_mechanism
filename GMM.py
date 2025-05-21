@@ -95,10 +95,10 @@ def paremeter_training(matrix, match_name, k):
         'A': model.A.detach().numpy(),
         'B': model.B.detach().numpy()
     })
-    folder_path = f"best_parameters/{k}_matrix_{matrix.shape}/"
+    folder_path = f"result/best_parameters/{k}_matrix_{matrix.shape}/"
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
-    params_df.to_csv(f"best_parameters/{k}_matrix_{matrix.shape}/{match_name}_GMM.csv", index=False)
+    params_df.to_csv(f"result/best_parameters/{k}_matrix_{matrix.shape}/{match_name}_GMM.csv", index=False)
     print(f"\nParameters saved to {k}_matrix_{matrix.shape}/{match_name}/GMM.csv")
 
 
@@ -192,4 +192,4 @@ if __name__ == '__main__':
     #             matrix = badminton_rating(player_number, a, False)
     #         paremeter_training(matrix, match_name = match, k = k)
 
-    plot_GMMs("best_parameters/11_matrix_33/")
+    plot_GMMs("result/best_parameters/11_matrix_33/")

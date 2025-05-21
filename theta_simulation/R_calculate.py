@@ -33,7 +33,7 @@ def R_vector_calculate(Winning_Matrix, player_num, calculate_number):
     return R[:return_index]
 
 
-def strength_list(num_players, strengths_type, match_name,num_simulations=100):
+def strength_list(num_players, strengths_type, match_name, k, num_simulations=100):
     simulate_num = int(num_players)
     cumulative_strengths = np.zeros(simulate_num)  # 用于累加每次排序后的实力
 
@@ -52,10 +52,16 @@ def strength_list(num_players, strengths_type, match_name,num_simulations=100):
             normal_data = np.random.randn(simulate_num)
             strengths = 1 / (1 + np.exp(-normal_data))
 
+        elif strengths_type == 'Zipf':
+            # Zipf 分布，排名越靠前，实力越高
+            ranks = np.arange(1, simulate_num + 1)
+            strengths = 1 / ranks
+            strengths = strengths / np.max(strengths)  # 归一化到 (0, 1]
+
         elif strengths_type == 'MultiGaussian':
             # 高斯混合模型
-            params_df = pd.read_csv(f"best_parameters/3_matrix_33/{match_name}_GMM.csv")
-            # params_df = pd.read_csv(f"best_parameters/{match_name}_GMM.csv")
+            params_df = pd.read_csv(f"result/best_parameters/{k}_matrix_33/{match_name}_GMM.csv")
+            # params_df = pd.read_csv(f"result/best_parameters/{match_name}_GMM.csv")
             A = params_df['A'].values
             B = params_df['B'].values
             k = len(A)
@@ -108,7 +114,7 @@ def calculate_simulation_matrix(simulated_strength, theta, num_players):
     simulated_winning_matrix = temp_M
     return simulated_winning_matrix
 
-def simulation(matrix, theta_values, num_players, distribution_type, match, and_one_flag=True, NDCG_Flag = False):
+def simulation(matrix, theta_values, num_players, distribution_type, match, k, and_one_flag=True, NDCG_Flag = False):
     D = []
     D_min = 10000
     min_theta = 0
@@ -118,8 +124,7 @@ def simulation(matrix, theta_values, num_players, distribution_type, match, and_
         calculate_length = len(matrix)-1
     # print(calculate_length)
     R = R_vector_calculate(matrix, num_players, calculate_length)
-
-    simulated_strength = strength_list(calculate_length, strengths_type = distribution_type, match_name = match)
+    simulated_strength = strength_list(calculate_length, distribution_type, match, k)
     simulated_strength = simulated_strength[:calculate_length]
     for theta in theta_values:
         D_v = 0
@@ -141,7 +146,7 @@ def simulation(matrix, theta_values, num_players, distribution_type, match, and_
     # print(f"D length: {len(D)}")
     return D, min_theta , D_min
 
-def best_theta_simulation(matrix, theta, distribution_type, num_players, match, and_one_flag=True):
+def best_theta_simulation(matrix, theta, distribution_type, num_players, match, k , and_one_flag=True):
     if and_one_flag:
         calculate_length = len(matrix)
     else:
@@ -149,7 +154,7 @@ def best_theta_simulation(matrix, theta, distribution_type, num_players, match, 
     R_simulated_list = []
 
     for i in range(10):
-        simulated_strength = strength_list(num_players=calculate_length, strengths_type=distribution_type, match_name=match)
+        simulated_strength = strength_list(calculate_length, distribution_type, match, k)
 
         simulated_winning_matrix = calculate_simulation_matrix(simulated_strength, theta, calculate_length)
         R_simulated = R_vector_calculate(simulated_winning_matrix, num_players, calculate_length)
@@ -171,7 +176,7 @@ def best_theta_simulation(matrix, theta, distribution_type, num_players, match, 
     # print(D_v)
     return R_simulated_avg
 
-def best_theta_matrix_d(matrix, theta, distribution_type, num_players, match,and_one_flag=True):
+def best_theta_matrix_d(matrix, theta, distribution_type, num_players, match, k,and_one_flag=True):
     D_M = []
     simulated_winning_matrix = np.zeros_like(matrix, dtype=float)
     if and_one_flag:
@@ -179,7 +184,7 @@ def best_theta_matrix_d(matrix, theta, distribution_type, num_players, match,and
     else:
         calculate_length = len(matrix)-1
     for i in range(5):
-        simulated_strength = strength_list(num_players=calculate_length, strengths_type=distribution_type, match_name= match)
+        simulated_strength = strength_list(calculate_length, distribution_type, match, k)
 
         simulated_winning_matrix += calculate_simulation_matrix(simulated_strength, theta, calculate_length)
 
@@ -188,7 +193,7 @@ def best_theta_matrix_d(matrix, theta, distribution_type, num_players, match,and
 
     return D_M
 
-def get_best_theta_matrix(theta, distribution_type, num_players, match,and_one_flag=True):
+def get_best_theta_matrix(theta, distribution_type, num_players, match, k,and_one_flag=True):
     D_M = []
     simulated_winning_matrix = np.zeros((num_players, num_players), dtype=float)
     if and_one_flag:
@@ -196,7 +201,7 @@ def get_best_theta_matrix(theta, distribution_type, num_players, match,and_one_f
     else:
         calculate_length = num_players-1
     for i in range(5):
-        simulated_strength = strength_list(num_players=calculate_length, strengths_type=distribution_type, match_name= match)
+        simulated_strength = strength_list(calculate_length, distribution_type, match, k)
 
         simulated_winning_matrix += calculate_simulation_matrix(simulated_strength, theta, calculate_length)
         
@@ -211,10 +216,10 @@ def save_d(match_name,  D_mean):
     df.to_csv(save_path.with_suffix(".txt"), index=False)
 
 
-def R_calculate(iteration, theta_value, winning_matrix, num_players, distribution_type, match,and_one_flag=True, NDCG_Flag = False):
+def R_calculate(iteration, theta_value, winning_matrix, num_players, distribution_type, match, k,and_one_flag=True, NDCG_Flag = False):
     D = []
     for i in range(iteration):
-        temp_D, _, _ = simulation(winning_matrix, theta_value, num_players, distribution_type, match=match, and_one_flag=and_one_flag, NDCG_Flag=NDCG_Flag)
+        temp_D, _, _ = simulation(winning_matrix, theta_value, num_players, distribution_type, match, k, and_one_flag=and_one_flag, NDCG_Flag=NDCG_Flag)
         D.append(temp_D)
 
     D_mean = np.mean(np.array(D), axis=0)
@@ -235,7 +240,7 @@ if __name__ == "__main__":
     winning_matrix = tennis_rating(32,2,False)
     # D, min, d_min = simulation(winning_matrix, theta_values, 32, "Uniform")
     for i in range(iteration):
-        temp_D, _, _ = simulation(winning_matrix, theta_values, 32, "Uniform")
+        temp_D, _, _ = simulation(winning_matrix, theta_values, 32, "Uniform", k)
         D.append(temp_D)
 
     D_mean = np.mean(np.array(D), axis=0)

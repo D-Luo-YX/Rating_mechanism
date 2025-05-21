@@ -45,7 +45,7 @@ def win_judge(win_matrix, p1, p2, player_information):
         win_rate = win_matrix[p1 - 1, p2 - 1]
 
     # 随机决定是否获胜（根据 win_rate）
-    if win_rate > 0.5:
+    if np.random.rand() < win_rate:
         # p1 战胜 p2，更新 p1 的分数和战胜对手列表
         player_information.loc[player_information['Player'] == p1, 'Score'] += 1
         player_information.loc[player_information['Player'] == p1, 'Defeated_Opponents'].values[0].append(p2)
@@ -74,7 +74,7 @@ def win_judge_return_winner(win_matrix, p1, p2, player_information):
         win_rate = win_matrix[p1 - 1, p2 - 1]
 
     # 随机决定是否获胜（根据 win_rate）
-    if win_rate > 0.5:
+    if np.random.rand() < win_rate:
         # p1 战胜 p2，更新 p1 的分数和战胜对手列表
         player_information.loc[player_information['Player'] == p1, 'Score'] += 1
         player_information.loc[player_information['Player'] == p1, 'Defeated_Opponents'].values[0].append(p2)
@@ -104,7 +104,7 @@ def win_judge_with_lose_time(win_matrix, p1, p2, player_information):
         win_rate = win_matrix[p1 - 1, p2 - 1]
 
     # 随机决定是否获胜（根据 win_rate）
-    if win_rate > 0.5:
+    if np.random.rand() < win_rate:
         # p1 战胜 p2，更新 p1 的分数和战胜对手列表
         player_information.loc[player_information['Player'] == p1, 'Score'] += 1
         player_information.loc[player_information['Player'] == p1, 'Defeated_Opponents'].values[0].append(p2)
@@ -138,7 +138,7 @@ def win_judge_with_weight(win_matrix, p1, p2, weight, player_information):
     # 如果是第一轮，则设置为1
     weight = 1 if weight == 0 else weight
     # 随机决定是否获胜（根据 win_rate）
-    if win_rate > 0.5:
+    if np.random.rand() < win_rate:
         # p1 战胜 p2，更新 p1 的分数和战胜对手列表
         player_information.loc[player_information['Player'] == p1, 'Score'] += weight
         player_information.loc[player_information['Player'] == p1, 'Defeated_Opponents'].values[0].append(p2)

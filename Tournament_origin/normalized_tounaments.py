@@ -421,7 +421,7 @@ def weighted_round_robin(win_matrix, player_information, rounds_num, matches_num
                 weighted_information.loc[weighted_information['Player'] == p1, 'Defeated_Opponents'].values[0].append(p2)
             else:
                 win_rate = win_matrix[p1-1, p2-1]
-                if win_rate > 0.5:
+                if np.random.rand() < win_rate:
                     weighted_information.loc[weighted_information['Player'] == p1, 'Score'] += weight
                     weighted_information.loc[weighted_information['Player'] == p1, 'Defeated_Opponents'].values[0].append(p2)
                 else:

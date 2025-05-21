@@ -40,8 +40,9 @@ def plot_difference_matrices(difference_matrices, matches, distributions):
 
     # ✅ 替换 tight_layout()，手动调整布局
     plt.subplots_adjust(left=0.05, right=0.88, top=0.95, bottom=0.05, wspace=0.3, hspace=0.3)
-
-    # plt.show()
+    if not os.path.exists('result/theta_result'):
+        os.makedirs('result/theta_result')
+    plt.savefig('result/theta_result/difference_matrices.png')
 
 # def plot_difference_matrices(difference_matrices):
 #     """
@@ -134,7 +135,9 @@ def plot_theta(results, theta_values,distribution):
         plt.grid(True)
 
     plt.tight_layout()
-    # plt.show()
+    if not os.path.exists('result/theta_result'):
+        os.makedirs('result/theta_result')
+    plt.savefig('result/theta_result/theta_simulation.png')
 
 
 def plot_R_difference(R_prime_result, R_result, matches, distributions):
@@ -179,4 +182,6 @@ def plot_R_difference(R_prime_result, R_result, matches, distributions):
         ax.grid(True)
 
     plt.tight_layout(rect=[0, 0, 1, 0.95])
-    # plt.show()
+    if not os.path.exists('result/theta_result'):
+        os.makedirs('result/theta_result')
+    plt.savefig('result/theta_result/R_comparison.png')

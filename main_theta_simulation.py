@@ -111,35 +111,29 @@ def tournament_plot(type, correlation_types, data_types, correlations, distribut
         concat_curve_images(simulation_path, 'simulation_data', 'bar')
 
 if __name__ == '__main__':
-    # setting parameters
+    # ---------- 设置参数 ----------
     alpha = 1
-    player_num = 32
-    iteration = 10
-    # and_one_flag = True
-    and_one_flag = False
+    player_num = 32 #
+    iteration = 10  # 迭代次数
+    and_one_flag = False    # 是否考虑多计算一名选手
+    k = 7   # GMM 参数, 可选3，5，7，9，11
 
-    NDCG_flag = False
-    # NDCG_flag = True
-    theta_values = np.arange(0, 2, 0.01)
+    NDCG_flag = False   # 是否使用NDCG计算结果，NDCG可以有效考虑排名靠前的选手
+    theta_values = np.arange(0, 2, 0.01)    # 分布类型的参数
 
-    matches = ['StarCraft', 'Tennis', 'Go', 'Badminton']
-    distribution = ['Uniform', 'PL', 'Normal','MultiGaussian']
-    # matches = ['StarCraft']
-    # distribution = ['Uniform']
+    matches = ['StarCraft', 'Tennis', 'Go', 'Badminton']    # 所有的比赛类型
+    distribution = ['Uniform', 'PL', 'Normal','Zipf', 'MultiGaussian']    # 所有可能的实力分布类型
 
-    results = {match: {dist: {} for dist in distribution} for match in matches}
+    results = {match: {dist: {} for dist in distribution} for match in matches} # 存储比赛的结果
+    if not os.path.exists('result'):
+        os.makedirs('result')
 
-    # calculate D_mean; D_min; Theta_min_index
-    # tennis_M = tennis_rating(player_num, alpha,False)
-    # print(tennis_M.shape)
-    ###########################################################
-    ####################### best theta ########################
-    ###########################################################
+    # ----------- 绘制D随theta变化的曲线，衡量不同theta下仿真胜率矩阵$M'$和真实胜率矩阵$M$的差异 ----------
     for match in matches:
         temp_M = calculate_M(match, player_num, alpha, False)
 
         for distribution_type in distribution:
-            temp_mean, temp_min, temp_index = R_calculate(iteration, theta_values, temp_M, player_num, distribution_type, match= match,and_one_flag= and_one_flag, NDCG_Flag= NDCG_flag)
+            temp_mean, temp_min, temp_index = R_calculate(iteration, theta_values, temp_M, player_num, distribution_type, match, k,and_one_flag= and_one_flag, NDCG_Flag= NDCG_flag)
             results[match][distribution_type] = {
                 "mean": temp_mean,
                 "min": temp_min,
@@ -148,9 +142,11 @@ if __name__ == '__main__':
     plot_theta(results, theta_values, distribution)
 
 
-    ###########################################################
-    ####################### 计算 R' 和 R #######################
-    ###########################################################
+    # ----------------- 计算R和R' -----------------
+    """"
+        R:真实数据下的一系列选手被实力低于他的选手击败的概率
+        R':模拟数据下的一系列选手被实力低于他的选手击败的概率
+    """
     R_prime_result = {}
     R_result = {}
 
@@ -159,65 +155,74 @@ if __name__ == '__main__':
         for dist in distribution:
             theta_ = theta_values[results[match][dist]['index']]
             temp_M = calculate_M(match, player_num, alpha, False)
-            R_prime = best_theta_simulation(temp_M, theta_, dist, player_num, match=match, and_one_flag= and_one_flag)
+            R_prime = best_theta_simulation(temp_M, theta_, dist, player_num, match, k, and_one_flag= and_one_flag)
             R_prime_result[(match, dist)] = R_prime
 
     # 计算 R   
     for match in matches:
         temp_M = calculate_M(match, player_num, alpha, False)
-
         if and_one_flag:
         # and_one
             R = R_vector_calculate(temp_M, player_num, len(temp_M))
         else:
         # no and_one
             R = R_vector_calculate(temp_M, player_num, len(temp_M)-1)
-
         R_result[match] = R
 
-    # 画出R与R'的按位次波动的代码
+    # 绘制R与R'的按位次波动的代码
     plot_R_difference(R_prime_result, R_result, matches, distribution)
 
-    ###########################################################
-    ############### 模拟数据和真实数据在赛制下的结果 ###############
-    ###########################################################
-    # 赛制的模拟次数
-    tournament_iterations = 50
-    # 以轮次数控制，测试 rounds_num 从 1 到 10
+    # ----------------- 赛制相关结果，包括真实数据R和模拟数据R' -----------------
+    tournament_iterations = 1       # 赛制的模拟次数
+    """ 绘制曲线图的类型，三个可选参数
+        ----‘matches’:  以比赛场次控制
+        ----‘rounds’:  以轮次数控制
+        ----‘finish_all_rounds’:  以完成所有轮次控制"""
+    turnament_curve_type = 'rounds' 
+    print(f"当前赛制的类型为：{turnament_curve_type}")
+
+    # 不同控制机制下参数的取值范围
     param_min = 1
-    param_max = 33
+    if turnament_curve_type == 'matches':
+        param_max = player_num * (player_num - 1) // 2
+    elif turnament_curve_type == 'rounds':
+        param_max = player_num
+    elif turnament_curve_type == 'finish_all_rounds':
+        param_max = 100
     param_values = list(range(param_min, param_max+1))
+    print(f"当前赛制的参数范围为：{param_min} - {param_max}")
 
     #赛制的path
-    correlations_tounament_simulation_dirpath = f"tournament_result_simulations={tournament_iterations}_parmmin={param_min}_prammax={param_max}"
+    correlations_tounament_simulation_dirpath = f"result/tournament_result/{turnament_curve_type}/tournament_result_simulations={tournament_iterations}_parmmin={param_min}_prammax={param_max}"
     if not os.path.exists(correlations_tounament_simulation_dirpath):
         os.makedirs(correlations_tounament_simulation_dirpath)
     correlations = pd.DataFrame()
     correlations_path = os.path.join(correlations_tounament_simulation_dirpath, "correlations_tournament.csv")
 
+    print(f"赛制相关结果的路径为：{correlations_path}")
     for match in matches:
         ### 真实数据下的结果
         # 获取真实胜率模拟矩阵
         real_winning_matrix = calculate_M(match, player_num, alpha, False)
-        tournament_correlation(match, None, real_winning_matrix, tournament_iterations, 'Real Data', "rounds", param_values, correlations_path)
-        tournament_correlation(match, None, real_winning_matrix, tournament_iterations, 'Real Data', "finish_all_rounds", param_values, correlations_path)
+        tournament_correlation(match, None, real_winning_matrix, tournament_iterations, 'Real Data', turnament_curve_type, param_values, correlations_path)
 
-        ### 模拟数据下的结果
+        # 模拟数据下的结果
         for distribution_type in distribution:
             # 获取最佳 theta（使用之前计算的结果）
             best_theta = theta_values[results[match][distribution_type]['index']]
             # 获取最佳theta下的胜率模拟矩阵
-            simulated_winning_matrix = get_best_theta_matrix(best_theta, distribution_type, player_num, match=match)
+            simulated_winning_matrix = get_best_theta_matrix(best_theta, distribution_type, player_num, match, k)
             # 在对应赛制和分布下，相关系数的值
-            tournament_correlation(match, distribution_type, real_winning_matrix, tournament_iterations, 'Simulation Data', 'rounds', param_values, correlations_path)
-            tournament_correlation(match, distribution_type, real_winning_matrix, tournament_iterations, 'Simulation Data', 'finish_all_rounds', param_values, correlations_path)
-
+            tournament_correlation(match, distribution_type, real_winning_matrix, tournament_iterations, 'Simulation Data', turnament_curve_type, param_values, correlations_path)
+            # tournament_correlation(match, distribution_type, real_winning_matrix, tournament_iterations, 'Simulation Data', 'finish_all_rounds', param_values, correlations_path)
 
     # 绘制图片
     correlations = pd.read_csv(correlations_path)
 
     tournament_plot('curve', ['Spearman'], ['Real Data', 'Simulation Data'], correlations, distribution)
-    tournament_plot('bar', ['Spearman'], ['Real Data', 'Simulation Data'], correlations, distribution)
+    tournament_plot('curve', ['NDCG_Spearman'], ['Real Data', 'Simulation Data'], correlations, distribution)
+
+    # tournament_plot('bar', ['Spearman'], ['Real Data', 'Simulation Data'], correlations, distribution)
 
     # # 计算差异热度图
     # difference_matrices = {}  # 存储差异矩阵
